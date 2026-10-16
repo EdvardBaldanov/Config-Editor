@@ -1,0 +1,248 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
+
+	"config-studio/internal/config"
+	appfs "config-studio/internal/fs"
+	"config-studio/internal/server"
+	"config-studio/web"
+)
+
+func main() {
+	var (
+		port          = flag.Int("port", 8080, "Port to listen on (default 8080)")
+		workdir       = flag.String("workdir", "", "Working directory containing config files (default ./data/configs)")
+		dataDir       = flag.String("data", "", "Directory for settings and custom branding (default ./data)")
+		authUser      = flag.String("auth-user", "", "Basic Auth username (or set CONFIG_AUTH_USER)")
+		authPass      = flag.String("auth-pass", "", "Basic Auth password (or set CONFIG_AUTH_PASS)")
+		installFlag   = flag.Bool("install", false, "Install Config Studio as a system service (auto-detects systemd or OpenRC)")
+		uninstallFlag = flag.Bool("uninstall", false, "Uninstall Config Studio service and binary")
+	)
+	flag.Parse()
+
+	// Check if install or uninstall was requested
+	if *installFlag {
+		handleInstall()
+		return
+	}
+	if *uninstallFlag {
+		handleUninstall()
+		return
+	}
+
+	// Load .env if present
+	loadEnvFile("config.env")
+	loadEnvFile("/opt/config-studio/config.env")
+
+	// Environment variable fallbacks
+	if *workdir == "" {
+		if env := os.Getenv("CONFIG_WORKDIR"); env != "" {
+			*workdir = env
+		} else {
+			*workdir = "./data/configs"
+		}
+	}
+	if *dataDir == "" {
+		if env := os.Getenv("CONFIG_DATADIR"); env != "" {
+			*dataDir = env
+		} else {
+			*dataDir = "./data"
+		}
+	}
+	if *authUser == "" {
+		*authUser = os.Getenv("CONFIG_AUTH_USER")
+	}
+	if *authPass == "" {
+		*authPass = os.Getenv("CONFIG_AUTH_PASS")
+	}
+
+	// Initialize config manager
+	cfgMgr, err := config.NewManager(*dataDir)
+	if err != nil {
+		log.Fatalf("Failed to initialize configuration manager: %v", err)
+	}
+
+	// Initialize filesystem service
+	fsSvc, err := appfs.NewService(*workdir)
+	if err != nil {
+		log.Fatalf("Failed to initialize filesystem service: %v", err)
+	}
+
+	// Seed sample demo files if WORKDIR is empty
+	seedSampleFiles(*workdir)
+
+	// Prepare embedded Web FS
+	subFS, err := web.GetFS()
+	if err != nil {
+		log.Printf("Warning: failed to load embedded frontend: %v", err)
+	}
+
+	srvConfig := server.Config{
+		AuthUser: *authUser,
+		AuthPass: *authPass,
+		WebFS:    subFS,
+	}
+
+	appServer := server.NewServer(srvConfig, cfgMgr, fsSvc)
+
+	addr := fmt.Sprintf("0.0.0.0:%d", *port)
+	httpServer := &http.Server{
+		Addr:         addr,
+		Handler:      appServer,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 60 * time.Second,
+	}
+
+	// Graceful shutdown channel
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		log.Printf("==================================================")
+		log.Printf(" Config Studio is running at http://%s", addr)
+		log.Printf(" Working directory: %s", *workdir)
+		log.Printf(" Data directory:    %s", *dataDir)
+		if *authUser != "" {
+			log.Printf(" Basic Auth:        enabled (user: %s)", *authUser)
+		} else {
+			log.Printf(" Basic Auth:        disabled")
+		}
+		log.Printf("==================================================")
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server listen error: %v", err)
+		}
+	}()
+
+	<-stop
+	log.Println("Shutting down Config Studio...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Printf("Server shutdown error: %v", err)
+	}
+	log.Println("Config Studio stopped gracefully.")
+}
+
+func seedSampleFiles(workdir string) {
+	sampleYAML := `version: '3.8'
+
+services:
+  web:
+    image: nginx:alpine
+    container_name: web_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DEBUG: "true"
+      APP_ENV: production
+      LOG_LEVEL: info
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./html:/usr/share/nginx/html
+    networks:
+      - frontend
+      - backend
+
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret_password
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+
+volumes:
+  db_data:
+`
+
+	sampleJSON := `{
+  "name": "config-studio",
+  "version": "1.0.0",
+  "description": "Modern Linux configuration editor",
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "ssl": false
+  },
+  "features": [
+    "ast-outline",
+    "monaco-editor",
+    "theme-customization",
+    "file-manager"
+  ],
+  "author": {
+    "name": "Admin",
+    "email": "admin@example.local"
+  }
+}
+`
+
+	sampleTOML := `[server]
+host = "127.0.0.1"
+port = 9000
+workers = 4
+
+[database]
+engine = "postgresql"
+name = "production"
+timeout = 30
+max_connections = 100
+
+[logging]
+level = "info"
+format = "json"
+enabled = true
+`
+
+	_ = os.WriteFile(filepath.Join(workdir, "docker-compose.yml"), []byte(sampleYAML), 0644)
+	_ = os.WriteFile(filepath.Join(workdir, "app-config.json"), []byte(sampleJSON), 0644)
+	_ = os.WriteFile(filepath.Join(workdir, "settings.toml"), []byte(sampleTOML), 0644)
+}
+
+func loadEnvFile(path string) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) == 2 {
+			k := strings.TrimSpace(parts[0])
+			v := strings.Trim(strings.TrimSpace(parts[1]), "\"'")
+			if os.Getenv(k) == "" {
+				os.Setenv(k, v)
+			}
+		}
+	}
+}

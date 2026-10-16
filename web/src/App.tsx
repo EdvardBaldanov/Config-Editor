@@ -1,0 +1,471 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Header } from './components/Header';
+import { FileExplorer } from './components/FileExplorer';
+import { Editor } from './components/Editor';
+import { StructureOutline } from './components/StructureOutline';
+import { SettingsModal } from './components/SettingsModal';
+import { FilePropertiesModal } from './components/FilePropertiesModal';
+import { LoginScreen } from './components/LoginScreen';
+import { api } from './services/api';
+import { Settings, FileItem, OpenFile, FileRevision } from './types';
+import { parseContentToOutline } from './utils/astParser';
+import { translations, Language } from './utils/i18n';
+import { adjustBrightness, getLuminance } from './utils/color';
+
+export const App: React.FC = () => {
+  const [settings, setSettings] = useState<Settings>({
+    appTitle: 'Config Studio',
+    baseColor: '#161b22',
+    accentColor: '#00d2b4',
+    themeMode: 'dark',
+    language: 'ru',
+    hasCustomIcon: false,
+    authEnabled: false,
+    authUser: 'admin',
+  });
+
+  const [authStatus, setAuthStatus] = useState<{
+    authRequired: boolean;
+    authenticated: boolean;
+    user: string;
+  }>({ authRequired: false, authenticated: true, user: 'guest' });
+
+  const [currentDir, setCurrentDir] = useState<string>('');
+  const [dirItems, setDirItems] = useState<FileItem[]>([]);
+  const [tabs, setTabs] = useState<OpenFile[]>([]);
+  const [activeTabPath, setActiveTabPath] = useState<string | null>(null);
+
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isPropertiesOpen, setIsPropertiesOpen] = useState<boolean>(false);
+
+  const editorRef = useRef<any>(null);
+  const t = translations[settings.language] || translations.ru;
+
+  const currentFile = useMemo(
+    () => tabs.find((t) => t.path === activeTabPath) || null,
+    [tabs, activeTabPath]
+  );
+
+  // Check initial authentication and load settings
+  useEffect(() => {
+    checkAuthAndInit();
+  }, []);
+
+  const checkAuthAndInit = async () => {
+    try {
+      const status = await api.getAuthStatus();
+      setAuthStatus(status);
+      if (!status.authRequired || status.authenticated) {
+        await loadSettings();
+        await loadDir('');
+      }
+    } catch (e) {
+      console.error('Failed to init auth:', e);
+    }
+  };
+
+  const loadSettings = async () => {
+    try {
+      const data = await api.getSettings();
+      setSettings(data);
+    } catch (e) {
+      console.error('Failed to load settings:', e);
+    }
+  };
+
+  const loadDir = async (path: string) => {
+    try {
+      const res = await api.getTree(path);
+      setCurrentDir(res.path || '');
+      setDirItems(res.items || []);
+
+      // Auto-open first yaml/json file if no tabs open
+      if (tabs.length === 0 && res.items && res.items.length > 0) {
+        const first = res.items.find(
+          (i) =>
+            !i.isDir &&
+            (i.extension === '.yml' ||
+              i.extension === '.yaml' ||
+              i.extension === '.json')
+        );
+        if (first) {
+          openFile(first.path);
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to list directory:', err);
+    }
+  };
+
+  // Open file into multi-tab system
+  const openFile = async (filePath: string) => {
+    // If tab already open, switch to it
+    const existing = tabs.find((t) => t.path === filePath);
+    if (existing) {
+      setActiveTabPath(filePath);
+      return;
+    }
+
+    try {
+      const fileData = await api.getFile(filePath);
+      const newTab: OpenFile = {
+        path: fileData.path,
+        name: fileData.name,
+        content: fileData.content,
+        initialContent: fileData.content,
+        isDirty: false,
+        language: fileData.name.split('.').pop() || '',
+        revisions: [],
+      };
+      setTabs((prev) => [...prev, newTab]);
+      setActiveTabPath(fileData.path);
+    } catch (err: any) {
+      alert(`Error reading file: ${err.message}`);
+    }
+  };
+
+  const handleCloseTab = (filePath: string) => {
+    const tabToClose = tabs.find((t) => t.path === filePath);
+    if (tabToClose?.isDirty) {
+      const msg = t.unsavedWarning.replace('{name}', tabToClose.name);
+      if (!confirm(msg)) {
+        return;
+      }
+    }
+
+    const nextTabs = tabs.filter((t) => t.path !== filePath);
+    setTabs(nextTabs);
+    if (activeTabPath === filePath) {
+      setActiveTabPath(nextTabs.length > 0 ? nextTabs[nextTabs.length - 1].path : null);
+    }
+  };
+
+  // Window beforeunload prompt if any tab is dirty
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const hasDirty = tabs.some((tab) => tab.isDirty);
+      if (hasDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [tabs]);
+
+  // Sync <head> title and favicon
+  useEffect(() => {
+    const filePart = currentFile ? currentFile.name : currentDir ? currentDir : 'Workspace';
+    document.title = `${settings.appTitle} — ${filePart}`;
+
+    const favicon = document.getElementById('app-favicon') as HTMLLinkElement;
+    if (favicon) {
+      if (settings.hasCustomIcon) {
+        favicon.href = `/api/branding/icon?t=${Date.now()}`;
+        if (settings.iconMime) {
+          favicon.type = settings.iconMime;
+        }
+      } else {
+        const initials = (settings.appTitle || 'CS').substring(0, 2).toUpperCase();
+        favicon.href = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='${encodeURIComponent(
+          settings.accentColor
+        )}'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='48' font-weight='bold' fill='%23121212'>${initials}</text></svg>`;
+        favicon.type = 'image/svg+xml';
+      }
+    }
+  }, [settings.appTitle, settings.hasCustomIcon, settings.iconMime, settings.accentColor, currentFile, currentDir]);
+
+  // Apply CSS color variables dynamically
+  useEffect(() => {
+    const base = settings.baseColor || '#161b22';
+    const isBaseLight = getLuminance(base) > 0.55;
+    const isDark = settings.themeMode === 'dark' && !isBaseLight;
+
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      const surface = adjustBrightness(base, 6);
+      const surfaceHover = adjustBrightness(base, 14);
+      const border = adjustBrightness(base, 20);
+
+      document.documentElement.style.setProperty('--color-base', base);
+      document.documentElement.style.setProperty('--color-surface', surface);
+      document.documentElement.style.setProperty('--color-surface-hover', surfaceHover);
+      document.documentElement.style.setProperty('--color-border', border);
+    } else {
+      document.documentElement.classList.remove('dark');
+      const lightBase = isBaseLight ? base : '#f8fafc';
+      const surface = isBaseLight ? adjustBrightness(base, -4) : '#ffffff';
+      const surfaceHover = isBaseLight ? adjustBrightness(base, -8) : '#f1f5f9';
+      const border = isBaseLight ? adjustBrightness(base, -14) : '#e2e8f0';
+
+      document.documentElement.style.setProperty('--color-base', lightBase);
+      document.documentElement.style.setProperty('--color-surface', surface);
+      document.documentElement.style.setProperty('--color-surface-hover', surfaceHover);
+      document.documentElement.style.setProperty('--color-border', border);
+    }
+
+    document.documentElement.style.setProperty('--color-accent', settings.accentColor || '#00d2b4');
+  }, [settings.baseColor, settings.accentColor, settings.themeMode]);
+
+  // Real-time AST parsing for Outline
+  const { outline, parseError } = useMemo(() => {
+    if (!currentFile) return { outline: [], parseError: undefined };
+    const { outline, error } = parseContentToOutline(
+      currentFile.content,
+      currentFile.language,
+      currentFile.name
+    );
+    return { outline, parseError: error };
+  }, [currentFile?.content, currentFile?.language, currentFile?.name]);
+
+  const handleContentChange = (newContent: string) => {
+    if (!currentFile) return;
+    setTabs((prev) =>
+      prev.map((tab) =>
+        tab.path === currentFile.path
+          ? {
+              ...tab,
+              content: newContent,
+              isDirty: newContent !== tab.initialContent,
+            }
+          : tab
+      )
+    );
+  };
+
+  const handleSaveFile = async () => {
+    if (!currentFile) return;
+    setIsSaving(true);
+    try {
+      await api.saveFile(currentFile.path, currentFile.content, true);
+
+      // Create a revision snapshot
+      const currentLines = currentFile.content.split('\n').length;
+      const initialLines = currentFile.initialContent.split('\n').length;
+      const newRev: FileRevision = {
+        id: `rev_${Date.now()}`,
+        timestamp: new Date(),
+        content: currentFile.content,
+        linesCount: currentLines,
+        linesDelta: currentLines - initialLines,
+      };
+
+      setTabs((prev) =>
+        prev.map((tab) =>
+          tab.path === currentFile.path
+            ? {
+                ...tab,
+                initialContent: currentFile.content,
+                isDirty: false,
+                revisions: [newRev, ...tab.revisions],
+              }
+            : tab
+        )
+      );
+    } catch (err: any) {
+      alert(`Failed to save file: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRestoreRevision = (content: string) => {
+    if (!currentFile) return;
+    if (editorRef.current) {
+      editorRef.current.setValue(content);
+    }
+    handleContentChange(content);
+  };
+
+  const handleDownload = () => {
+    if (!currentFile) return;
+    const url = api.getDownloadUrl(currentFile.path);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = currentFile.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleJumpToLine = (line: number, shouldFocus: boolean = true) => {
+    if (editorRef.current) {
+      editorRef.current.revealLineInCenter(line);
+      if (shouldFocus) {
+        editorRef.current.setPosition({ lineNumber: line, column: 1 });
+        editorRef.current.focus();
+      }
+    }
+  };
+
+  const handleCreateItem = async (path: string, isDir: boolean) => {
+    try {
+      await api.createItem(path, isDir);
+      await loadDir(currentDir);
+      if (!isDir) {
+        await openFile(path);
+      }
+    } catch (err: any) {
+      alert(`Error creating item: ${err.message}`);
+    }
+  };
+
+  const handleDeleteItem = async (path: string) => {
+    try {
+      await api.deleteItem(path);
+      setTabs((prev) => prev.filter((t) => t.path !== path));
+      if (activeTabPath === path) {
+        const remaining = tabs.filter((t) => t.path !== path);
+        setActiveTabPath(remaining.length > 0 ? remaining[0].path : null);
+      }
+      await loadDir(currentDir);
+    } catch (err: any) {
+      alert(`Error deleting item: ${err.message}`);
+    }
+  };
+
+  const handleRenameItem = async (oldPath: string, newPath: string) => {
+    try {
+      await api.renameItem(oldPath, newPath);
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.path === oldPath
+            ? { ...t, path: newPath, name: newPath.split('/').pop() || newPath }
+            : t
+        )
+      );
+      if (activeTabPath === oldPath) {
+        setActiveTabPath(newPath);
+      }
+      await loadDir(currentDir);
+    } catch (err: any) {
+      alert(`Error renaming item: ${err.message}`);
+    }
+  };
+
+  const handleUploadFile = async (dirPath: string, file: File) => {
+    try {
+      const savedPath = await api.uploadFile(dirPath, file);
+      await loadDir(currentDir);
+      await openFile(savedPath);
+    } catch (err: any) {
+      alert(`Error uploading file: ${err.message}`);
+    }
+  };
+
+  const handleSaveSettings = async (newSettings: Partial<Settings>) => {
+    const updated = await api.updateSettings(newSettings);
+    setSettings(updated);
+  };
+
+  const handleUploadIcon = async (file: File) => {
+    const updated = await api.uploadIcon(file);
+    setSettings(updated);
+  };
+
+  const handleToggleTheme = async () => {
+    const nextMode = settings.themeMode === 'dark' ? 'light' : 'dark';
+    const updated = await api.updateSettings({ themeMode: nextMode });
+    setSettings(updated);
+  };
+
+  const handleChangeLanguage = async (newLang: Language) => {
+    const updated = await api.updateSettings({ language: newLang });
+    setSettings(updated);
+  };
+
+  const handleLogin = async (user: string, pass: string) => {
+    await api.login(user, pass);
+    await checkAuthAndInit();
+  };
+
+  const handleLogout = async () => {
+    await api.logout();
+    setAuthStatus({ authRequired: true, authenticated: false, user: '' });
+  };
+
+  // If authentication is required and not authenticated, show Login Screen
+  if (authStatus.authRequired && !authStatus.authenticated) {
+    return <LoginScreen settings={settings} onLogin={handleLogin} />;
+  }
+
+  return (
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-base text-gray-900 dark:text-gray-100 select-none">
+      {/* Top Header */}
+      <Header
+        settings={settings}
+        currentFile={currentFile}
+        currentDir={currentDir}
+        isSaving={isSaving}
+        onSave={handleSaveFile}
+        onDownload={handleDownload}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenProperties={() => setIsPropertiesOpen(true)}
+        onToggleTheme={handleToggleTheme}
+        onChangeLanguage={handleChangeLanguage}
+        onLogout={authStatus.authRequired ? handleLogout : undefined}
+        onOpenFile={openFile}
+        onNavigateDir={loadDir}
+      />
+
+      {/* Main Workspace (3 columns) */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left: File Explorer */}
+        <FileExplorer
+          items={dirItems}
+          currentDir={currentDir}
+          selectedFilePath={currentFile?.path || null}
+          settings={settings}
+          onSelectFile={openFile}
+          onNavigateDir={loadDir}
+          onRefresh={() => loadDir(currentDir)}
+          onCreateItem={handleCreateItem}
+          onDeleteItem={handleDeleteItem}
+          onRenameItem={handleRenameItem}
+          onUploadFile={handleUploadFile}
+        />
+
+        {/* Center: Monaco Editor with multi-tabs & full-width tag bar */}
+        <Editor
+          tabs={tabs}
+          activeFilePath={activeTabPath}
+          settings={settings}
+          outline={outline}
+          onSelectTab={setActiveTabPath}
+          onCloseTab={handleCloseTab}
+          onChangeContent={handleContentChange}
+          onSave={handleSaveFile}
+          onSelectLine={handleJumpToLine}
+          editorRef={editorRef}
+        />
+
+        {/* Right: Structure Outline with Quick Jump tags */}
+        <StructureOutline
+          outline={outline}
+          error={parseError}
+          settings={settings}
+          onSelectLine={handleJumpToLine}
+        />
+      </div>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        onSaveSettings={handleSaveSettings}
+        onUploadIcon={handleUploadIcon}
+      />
+
+      {/* File Properties & History Modal */}
+      <FilePropertiesModal
+        isOpen={isPropertiesOpen}
+        onClose={() => setIsPropertiesOpen(false)}
+        file={currentFile}
+        settings={settings}
+        onRestoreRevision={handleRestoreRevision}
+      />
+    </div>
+  );
+};

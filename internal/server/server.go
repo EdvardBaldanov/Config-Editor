@@ -1,0 +1,566 @@
+package server
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"io/fs"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
+	"config-studio/internal/config"
+	appfs "config-studio/internal/fs"
+)
+
+type Config struct {
+	AuthUser string
+	AuthPass string
+	WebFS    fs.FS
+}
+
+type Server struct {
+	cfg        Config
+	config     *config.Manager
+	fs         *appfs.Service
+	handler    http.Handler
+	sessionsMu sync.RWMutex
+	sessions   map[string]time.Time
+}
+
+func NewServer(cfg Config, cfgMgr *config.Manager, fsSvc *appfs.Service) *Server {
+	s := &Server{
+		cfg:      cfg,
+		config:   cfgMgr,
+		fs:       fsSvc,
+		sessions: make(map[string]time.Time),
+	}
+	s.setupRoutes()
+	return s
+}
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.handler.ServeHTTP(w, r)
+}
+
+func (s *Server) setupRoutes() {
+	mux := http.NewServeMux()
+
+	// Auth Endpoints
+	mux.HandleFunc("GET /api/auth/status", s.handleAuthStatus)
+	mux.HandleFunc("POST /api/auth/login", s.handleLogin)
+	mux.HandleFunc("POST /api/auth/logout", s.handleLogout)
+
+	// Settings & Branding
+	mux.HandleFunc("GET /api/settings", s.handleGetSettings)
+	mux.HandleFunc("POST /api/settings", s.handleUpdateSettings)
+	mux.HandleFunc("POST /api/settings/icon", s.handleUploadIcon)
+	mux.HandleFunc("GET /api/branding/icon", s.handleGetIcon)
+
+	// Filesystem APIs
+	mux.HandleFunc("GET /api/fs/tree", s.handleGetTree)
+	mux.HandleFunc("GET /api/fs/file", s.handleGetFile)
+	mux.HandleFunc("GET /api/fs/info", s.handleGetFileInfo)
+	mux.HandleFunc("POST /api/fs/file", s.handleSaveFile)
+	mux.HandleFunc("POST /api/fs/create", s.handleCreateItem)
+	mux.HandleFunc("DELETE /api/fs/delete", s.handleDeleteItem)
+	mux.HandleFunc("POST /api/fs/rename", s.handleRenameItem)
+	mux.HandleFunc("POST /api/fs/upload", s.handleUploadFile)
+	mux.HandleFunc("GET /api/fs/download", s.handleDownloadFile)
+	mux.HandleFunc("GET /api/fs/search", s.handleSearchFiles)
+
+	// Health check
+	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	})
+
+	// Wrap API with Auth check
+	apiHandler := s.authMiddleware(mux)
+
+	// SPA & Static Files
+	if s.cfg.WebFS != nil {
+		fileServer := http.FileServer(http.FS(s.cfg.WebFS))
+		fullMux := http.NewServeMux()
+		fullMux.Handle("/api/", apiHandler)
+		fullMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			path := strings.TrimPrefix(r.URL.Path, "/")
+			if path == "" {
+				path = "index.html"
+			}
+
+			// Check if file exists in embedded FS
+			if _, err := fs.Stat(s.cfg.WebFS, path); err == nil {
+				fileServer.ServeHTTP(w, r)
+				return
+			}
+
+			// Fallback to index.html for SPA
+			indexFile, err := s.cfg.WebFS.Open("index.html")
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			defer indexFile.Close()
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = io.Copy(w, indexFile)
+		})
+		s.handler = s.logMiddleware(fullMux)
+	} else {
+		s.handler = s.logMiddleware(apiHandler)
+	}
+}
+
+func (s *Server) logMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s %s", r.Method, r.URL.Path, r.RemoteAddr)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) isRequestAuthenticated(r *http.Request) (bool, string) {
+	// 1. Check Authentik / Authelia / ForwardAuth headers
+	if forwardedUser := r.Header.Get("X-Forwarded-User"); forwardedUser != "" {
+		return true, forwardedUser
+	}
+	if remoteUser := r.Header.Get("Remote-User"); remoteUser != "" {
+		return true, remoteUser
+	}
+	if authReqUser := r.Header.Get("X-Auth-Request-User"); authReqUser != "" {
+		return true, authReqUser
+	}
+
+	// 2. Check session cookie
+	cookie, err := r.Cookie("cs_session")
+	if err == nil && cookie.Value != "" {
+		s.sessionsMu.RLock()
+		exp, ok := s.sessions[cookie.Value]
+		s.sessionsMu.RUnlock()
+		if ok && time.Now().Before(exp) {
+			return true, "admin"
+		}
+	}
+
+	// 3. Check CLI basic auth flags if configured
+	if s.cfg.AuthUser != "" {
+		u, p, ok := r.BasicAuth()
+		if ok && u == s.cfg.AuthUser && p == s.cfg.AuthPass {
+			return true, u
+		}
+	}
+
+	return false, ""
+}
+
+func (s *Server) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Public paths that do not require auth
+		if r.URL.Path == "/api/auth/status" ||
+			r.URL.Path == "/api/auth/login" ||
+			r.URL.Path == "/api/branding/icon" ||
+			r.URL.Path == "/api/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		settings := s.config.Get()
+		requiresAuth := settings.AuthEnabled || s.cfg.AuthUser != ""
+
+		if !requiresAuth {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		authed, _ := s.isRequestAuthenticated(r)
+		if !authed {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized", "authRequired": "true"})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
+	settings := s.config.Get()
+	requiresAuth := settings.AuthEnabled || s.cfg.AuthUser != ""
+	authed, user := s.isRequestAuthenticated(r)
+
+	// If no auth is enabled, consider everyone authenticated
+	if !requiresAuth {
+		authed = true
+		user = "guest"
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"authRequired":  requiresAuth,
+		"authenticated": authed,
+		"user":          user,
+	})
+}
+
+func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	valid := false
+	if s.cfg.AuthUser != "" {
+		if req.Username == s.cfg.AuthUser && req.Password == s.cfg.AuthPass {
+			valid = true
+		}
+	}
+	if !valid && s.config.CheckAuth(req.Username, req.Password) {
+		valid = true
+	}
+
+	if !valid {
+		jsonError(w, http.StatusUnauthorized, "invalid username or password")
+		return
+	}
+
+	// Generate session token
+	b := make([]byte, 24)
+	_, _ = rand.Read(b)
+	token := hex.EncodeToString(b)
+
+	s.sessionsMu.Lock()
+	s.sessions[token] = time.Now().Add(7 * 24 * time.Hour) // 7 days session
+	s.sessionsMu.Unlock()
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "cs_session",
+		Value:    token,
+		Path:     "/",
+		Expires:  time.Now().Add(7 * 24 * time.Hour),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"status": "ok",
+		"user":   req.Username,
+	})
+}
+
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if cookie, err := r.Cookie("cs_session"); err == nil {
+		s.sessionsMu.Lock()
+		delete(s.sessions, cookie.Value)
+		s.sessionsMu.Unlock()
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "cs_session",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+	})
+
+	jsonResponse(w, http.StatusOK, map[string]string{"status": "logged_out"})
+}
+
+func jsonResponse(w http.ResponseWriter, status int, data any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(data)
+}
+
+func jsonError(w http.ResponseWriter, status int, msg string) {
+	jsonResponse(w, status, map[string]string{"error": msg})
+}
+
+func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
+	settings := s.config.Get()
+	jsonResponse(w, http.StatusOK, settings)
+}
+
+func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	var req config.Settings
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	if err := s.config.Update(req); err != nil {
+		jsonError(w, http.StatusInternalServerError, "failed to update settings: "+err.Error())
+		return
+	}
+	jsonResponse(w, http.StatusOK, s.config.Get())
+}
+
+func (s *Server) handleUploadIcon(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10 MB max
+		jsonError(w, http.StatusBadRequest, "failed to parse multipart form")
+		return
+	}
+
+	file, header, err := r.FormFile("icon")
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "missing icon file: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	if err := s.config.SaveIcon(file, header.Filename); err != nil {
+		jsonError(w, http.StatusInternalServerError, "failed to save icon: "+err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, s.config.Get())
+}
+
+func (s *Server) handleGetIcon(w http.ResponseWriter, r *http.Request) {
+	iconPath := s.config.IconPath()
+	if _, err := os.Stat(iconPath); os.IsNotExist(err) {
+		http.NotFound(w, r)
+		return
+	}
+
+	data, err := os.ReadFile(iconPath)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	mime := s.config.GetIconMime()
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func (s *Server) handleGetTree(w http.ResponseWriter, r *http.Request) {
+	relPath := r.URL.Query().Get("path")
+	items, err := s.fs.ListDir(relPath)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if items == nil {
+		items = []appfs.FileItem{}
+	}
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"path":  relPath,
+		"items": items,
+	})
+}
+
+func (s *Server) handleGetFile(w http.ResponseWriter, r *http.Request) {
+	relPath := r.URL.Query().Get("path")
+	if relPath == "" {
+		jsonError(w, http.StatusBadRequest, "path parameter is required")
+		return
+	}
+
+	content, err := s.fs.ReadFile(relPath)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"path":    relPath,
+		"name":    filepath.Base(relPath),
+		"content": string(content),
+	})
+}
+
+func (s *Server) handleGetFileInfo(w http.ResponseWriter, r *http.Request) {
+	relPath := r.URL.Query().Get("path")
+	if relPath == "" {
+		jsonError(w, http.StatusBadRequest, "path parameter is required")
+		return
+	}
+
+	content, err := s.fs.ReadFile(relPath)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	hash := sha256.Sum256(content)
+	hashHex := hex.EncodeToString(hash[:])
+	lineCount := strings.Count(string(content), "\n") + 1
+
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"path":      relPath,
+		"name":      filepath.Base(relPath),
+		"size":      len(content),
+		"lineCount": lineCount,
+		"charCount": len(string(content)),
+		"sha256":    hashHex,
+	})
+}
+
+func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Path    string `json:"path"`
+		Content string `json:"content"`
+		Backup  bool   `json:"backup"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	if req.Path == "" {
+		jsonError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	if err := s.fs.WriteFile(req.Path, []byte(req.Content), req.Backup); err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{"status": "saved", "path": req.Path})
+}
+
+func (s *Server) handleCreateItem(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Path  string `json:"path"`
+		IsDir bool   `json:"isDir"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+
+	if req.Path == "" {
+		jsonError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	if err := s.fs.CreateItem(req.Path, req.IsDir); err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{"status": "created", "path": req.Path})
+}
+
+func (s *Server) handleDeleteItem(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Path string `json:"path"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+
+	if req.Path == "" {
+		jsonError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	if err := s.fs.DeleteItem(req.Path); err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{"status": "deleted", "path": req.Path})
+}
+
+func (s *Server) handleRenameItem(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		OldPath string `json:"oldPath"`
+		NewPath string `json:"newPath"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+
+	if req.OldPath == "" || req.NewPath == "" {
+		jsonError(w, http.StatusBadRequest, "oldPath and newPath are required")
+		return
+	}
+
+	if err := s.fs.RenameItem(req.OldPath, req.NewPath); err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{
+		"status":  "renamed",
+		"oldPath": req.OldPath,
+		"newPath": req.NewPath,
+	})
+}
+
+func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(50 << 20); err != nil { // 50 MB max
+		jsonError(w, http.StatusBadRequest, "file too large or invalid multipart")
+		return
+	}
+
+	dirRel := r.FormValue("path")
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "missing file form parameter: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	savedPath, err := s.fs.UploadFile(dirRel, header.Filename, file)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{
+		"status": "uploaded",
+		"path":   savedPath,
+	})
+}
+
+func (s *Server) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
+	relPath := r.URL.Query().Get("path")
+	if relPath == "" {
+		jsonError(w, http.StatusBadRequest, "path parameter is required")
+		return
+	}
+
+	fullPath, err := s.fs.SafePath(relPath)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	filename := filepath.Base(fullPath)
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+	w.Header().Set("Content-Type", "application/octet-stream")
+	http.ServeFile(w, r, fullPath)
+}
+
+func (s *Server) handleSearchFiles(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	items, err := s.fs.SearchFiles(q)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"items": items,
+	})
+}
+

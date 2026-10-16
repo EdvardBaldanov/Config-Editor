@@ -1,0 +1,13 @@
+#!/sbin/openrc-run
+
+name="config-studio"
+description="Config Studio - Modern Web Config & YAML Editor"
+command="/usr/local/bin/config-studio"
+command_args="--port 8080 --workdir /etc/yaml-configs --data /opt/config-studio/data"
+command_background="yes"
+pidfile="/run/${RC_SVCNAME}.pid"
+
+depend() {
+    need net
+    after firewall
+}

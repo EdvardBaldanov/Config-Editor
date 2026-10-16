@@ -1,0 +1,14 @@
+[Unit]
+Description=Config Studio - Modern Web Config & YAML Editor
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/config-studio
+ExecStart=/usr/local/bin/config-studio --port 8080 --workdir /etc/yaml-configs --data /opt/config-studio/data
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

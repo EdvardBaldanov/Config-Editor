@@ -1,0 +1,25 @@
+# Binaries and build outputs
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Node dependencies and build
+node_modules/
+web/node_modules/
+web/dist/
+
+# Runtime data & secrets
+config.env
+data/
+*.bak
+*.tmp
+*.log
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

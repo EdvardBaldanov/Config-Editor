@@ -1,0 +1,462 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Save,
+  Download,
+  Settings as SettingsIcon,
+  Search,
+  Sun,
+  Moon,
+  FolderOpen,
+  Info,
+  LogOut,
+  Globe,
+  FileCode,
+  Folder,
+  X,
+  CornerDownLeft,
+  Loader2,
+} from 'lucide-react';
+import { Settings, OpenFile, FileItem } from '../types';
+import { translations, Language } from '../utils/i18n';
+import { api } from '../services/api';
+import { formatBytes } from '../utils/color';
+
+interface HeaderProps {
+  settings: Settings;
+  currentFile: OpenFile | null;
+  currentDir: string;
+  isSaving: boolean;
+  onSave: () => void;
+  onDownload: () => void;
+  onOpenSettings: () => void;
+  onOpenProperties: () => void;
+  onToggleTheme: () => void;
+  onChangeLanguage: (lang: Language) => void;
+  onLogout?: () => void;
+  onOpenFile: (path: string) => void;
+  onNavigateDir: (path: string) => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({
+  settings,
+  currentFile,
+  currentDir,
+  isSaving,
+  onSave,
+  onDownload,
+  onOpenSettings,
+  onOpenProperties,
+  onToggleTheme,
+  onChangeLanguage,
+  onLogout,
+  onOpenFile,
+  onNavigateDir,
+}) => {
+  const [fileSearchQuery, setFileSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<FileItem[]>([]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const t = translations[settings.language] || translations.ru;
+
+  const displayPath = currentFile
+    ? `/${currentFile.path}`
+    : currentDir
+    ? `/${currentDir}`
+    : '/';
+
+  // Global Ctrl+P / Cmd+P shortcut to focus file search
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        inputRef.current?.focus();
+        inputRef.current?.select();
+        setIsSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(e.target as Node)
+      ) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch search results when opened or query changes
+  useEffect(() => {
+    if (!isSearchOpen) return;
+
+    let active = true;
+    setIsLoading(true);
+
+    const timer = setTimeout(() => {
+      api
+        .searchFiles(fileSearchQuery)
+        .then((items) => {
+          if (active) {
+            setSearchResults(items);
+            setSelectedIndex(0);
+          }
+        })
+        .catch(() => {
+          if (active) setSearchResults([]);
+        })
+        .finally(() => {
+          if (active) setIsLoading(false);
+        });
+    }, 120);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [fileSearchQuery, isSearchOpen]);
+
+  const handleSelectFile = (item: FileItem) => {
+    if (item.isDir) {
+      onNavigateDir(item.path);
+    } else {
+      onOpenFile(item.path);
+    }
+    setIsSearchOpen(false);
+    setFileSearchQuery('');
+    inputRef.current?.blur();
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (searchResults.length > 0) {
+        setSelectedIndex((prev) => (prev + 1) % searchResults.length);
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (searchResults.length > 0) {
+        setSelectedIndex(
+          (prev) => (prev - 1 + searchResults.length) % searchResults.length
+        );
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (searchResults.length > 0 && searchResults[selectedIndex]) {
+        handleSelectFile(searchResults[selectedIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsSearchOpen(false);
+      inputRef.current?.blur();
+    }
+  };
+
+  const getFileBadge = (item: FileItem) => {
+    if (item.isDir) {
+      return (
+        <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+          DIR
+        </span>
+      );
+    }
+    const ext = item.extension.replace('.', '').toUpperCase();
+    switch (ext) {
+      case 'YAML':
+      case 'YML':
+        return (
+          <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30">
+            YAML
+          </span>
+        );
+      case 'JSON':
+        return (
+          <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+            JSON
+          </span>
+        );
+      case 'TOML':
+        return (
+          <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+            TOML
+          </span>
+        );
+      case 'INI':
+      case 'CONF':
+      case 'ENV':
+        return (
+          <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+            INI
+          </span>
+        );
+      default:
+        return (
+          <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-gray-500/15 text-gray-600 dark:text-gray-400 border border-gray-500/30">
+            {ext || 'FILE'}
+          </span>
+        );
+    }
+  };
+
+  return (
+    <header className="h-14 bg-base-surface border-b border-base-border px-4 flex items-center justify-between select-none z-30">
+      {/* Left: Branding & Path */}
+      <div className="flex items-center space-x-3 min-w-0">
+        <div className="flex items-center space-x-2.5">
+          {settings.hasCustomIcon ? (
+            <img
+              src={`/api/branding/icon?t=${Date.now()}`}
+              alt="Logo"
+              className="w-8 h-8 rounded-lg object-contain bg-black/10 dark:bg-black/30 p-1 border border-base-border"
+            />
+          ) : (
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shadow-md text-slate-900"
+              style={{ backgroundColor: settings.accentColor }}
+            >
+              {(settings.appTitle || 'CS').substring(0, 2).toUpperCase()}
+            </div>
+          )}
+          <span className="font-semibold text-base tracking-tight text-gray-900 dark:text-white whitespace-nowrap">
+            {settings.appTitle}
+          </span>
+        </div>
+
+        <div className="h-4 w-px bg-gray-300 dark:bg-white/20 mx-2 hidden sm:block" />
+
+        {/* Breadcrumb Path */}
+        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 font-mono overflow-hidden text-ellipsis whitespace-nowrap max-w-[200px] lg:max-w-[320px]">
+          <FolderOpen className="w-3.5 h-3.5 mr-1.5 text-accent flex-shrink-0" />
+          <span className="text-gray-800 dark:text-gray-300 font-medium truncate">
+            {displayPath}
+          </span>
+        </div>
+      </div>
+
+      {/* Center: Quick File Search with Autocomplete Dropdown */}
+      <div
+        ref={searchContainerRef}
+        className="hidden md:flex items-center relative w-72 lg:w-96 mx-4"
+      >
+        <Search className="w-4 h-4 absolute left-3 text-gray-400 pointer-events-none z-10" />
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder={t.searchFiles}
+          value={fileSearchQuery}
+          onFocus={() => setIsSearchOpen(true)}
+          onChange={(e) => {
+            setFileSearchQuery(e.target.value);
+            setIsSearchOpen(true);
+          }}
+          onKeyDown={handleInputKeyDown}
+          className="w-full bg-gray-100 dark:bg-black/25 text-gray-900 dark:text-gray-200 text-xs rounded-xl pl-9 pr-16 py-1.5 border border-base-border focus:outline-none focus:border-accent transition-colors"
+        />
+
+        {/* Right shortcut tag */}
+        <div className="absolute right-2.5 flex items-center space-x-1.5">
+          {fileSearchQuery ? (
+            <button
+              onClick={() => {
+                setFileSearchQuery('');
+                inputRef.current?.focus();
+              }}
+              className="text-gray-400 hover:text-gray-700 dark:hover:text-white p-0.5"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[9px] font-mono text-gray-400 bg-black/5 dark:bg-white/10 rounded border border-base-border pointer-events-none">
+              Ctrl+P
+            </kbd>
+          )}
+        </div>
+
+        {/* Floating File Search Results Dropdown */}
+        {isSearchOpen && (
+          <div className="absolute top-full left-0 right-0 mt-2 bg-base-surface border border-base-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-fade-in text-gray-800 dark:text-gray-200">
+            {/* Header info */}
+            <div className="px-3 py-2 border-b border-base-border bg-gray-50/50 dark:bg-black/20 flex items-center justify-between text-[11px] text-gray-400">
+              <span className="font-semibold uppercase tracking-wider text-[10px]">
+                {isLoading ? (
+                  <span className="flex items-center space-x-1 text-accent">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Поиск файлов...</span>
+                  </span>
+                ) : (
+                  <span>
+                    {searchResults.length} {searchResults.length === 1 ? 'файл' : 'файлов'}
+                  </span>
+                )}
+              </span>
+              <div className="flex items-center space-x-2 text-[10px]">
+                <span>↑↓ навигация</span>
+                <span>↵ открыть</span>
+                <span>Esc закрыть</span>
+              </div>
+            </div>
+
+            {/* Results List */}
+            <div className="max-h-80 overflow-y-auto p-1.5 space-y-0.5">
+              {isLoading && searchResults.length === 0 ? (
+                <div className="py-8 text-center text-xs text-gray-400 flex items-center justify-center space-x-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                  <span>Поиск файлов...</span>
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div className="py-8 text-center text-xs text-gray-400">
+                  <FileCode className="w-8 h-8 mx-auto mb-1.5 opacity-30 text-accent" />
+                  {t.noFilesFound}
+                </div>
+              ) : (
+                searchResults.map((item, idx) => {
+                  const isSelected = idx === selectedIndex;
+                  return (
+                    <div
+                      key={item.path}
+                      onClick={() => handleSelectFile(item)}
+                      onMouseEnter={() => setSelectedIndex(idx)}
+                      className={`group flex items-center justify-between px-3 py-2 rounded-xl text-xs cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-accent/15 text-gray-900 dark:text-white font-medium border border-accent ring-1 ring-accent/30'
+                          : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5 truncate min-w-0 pr-2">
+                        {item.isDir ? (
+                          <Folder className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                        ) : (
+                          <FileCode className="w-4 h-4 text-accent flex-shrink-0" />
+                        )}
+
+                        <div className="truncate">
+                          <span className="font-semibold text-gray-900 dark:text-white block truncate">
+                            {item.name}
+                          </span>
+                          <span className="text-[11px] text-gray-400 font-mono block truncate">
+                            /{item.path}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        {!item.isDir && (
+                          <span className="text-[10px] text-gray-400 font-mono hidden sm:inline">
+                            {formatBytes(item.size)}
+                          </span>
+                        )}
+                        {getFileBadge(item)}
+                        <CornerDownLeft
+                          className={`w-3.5 h-3.5 text-accent transition-opacity ${
+                            isSelected ? 'opacity-100' : 'opacity-0'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Right: Actions */}
+      <div className="flex items-center space-x-1.5 flex-shrink-0">
+        {/* Save button */}
+        <button
+          onClick={onSave}
+          disabled={!currentFile || isSaving}
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-900 transition-all duration-150 shadow-sm active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ backgroundColor: settings.accentColor }}
+          title={`${t.save} (Ctrl+S)`}
+        >
+          <Save className="w-3.5 h-3.5" />
+          <span>{isSaving ? t.saving : t.save}</span>
+          {currentFile?.isDirty && (
+            <span className="w-2 h-2 rounded-full bg-amber-400 inline-block animate-pulse ml-0.5" />
+          )}
+        </button>
+
+        {/* Download button */}
+        <button
+          onClick={onDownload}
+          disabled={!currentFile}
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-base-border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title={t.download}
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">{t.download}</span>
+        </button>
+
+        {/* File info / hash / history button */}
+        <button
+          onClick={onOpenProperties}
+          disabled={!currentFile}
+          className="p-2 rounded-xl text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-30"
+          title={t.fileProperties}
+        >
+          <Info className="w-4 h-4" />
+        </button>
+
+        {/* Language switch */}
+        <button
+          onClick={() =>
+            onChangeLanguage(settings.language === 'ru' ? 'en' : 'ru')
+          }
+          className="px-2 py-1 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center space-x-1"
+          title={t.language}
+        >
+          <Globe className="w-3.5 h-3.5 text-accent" />
+          <span>{settings.language === 'ru' ? 'RU' : 'EN'}</span>
+        </button>
+
+        {/* Theme mode toggle */}
+        <button
+          onClick={onToggleTheme}
+          className="p-2 rounded-xl text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+          title={`Switch to ${
+            settings.themeMode === 'dark' ? t.themeLight : t.themeDark
+          }`}
+        >
+          {settings.themeMode === 'dark' ? (
+            <Sun className="w-4 h-4" />
+          ) : (
+            <Moon className="w-4 h-4" />
+          )}
+        </button>
+
+        {/* Settings button */}
+        <button
+          onClick={onOpenSettings}
+          className="p-2 rounded-xl text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+          title={t.settings}
+        >
+          <SettingsIcon className="w-4 h-4" />
+        </button>
+
+        {/* Logout button if auth enabled */}
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="p-2 rounded-xl text-gray-500 hover:text-rose-500 dark:text-gray-400 dark:hover:text-rose-400 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            title={t.signOut}
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </header>
+  );
+};

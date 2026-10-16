@@ -1,0 +1,365 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  AlertTriangle,
+  FolderTree,
+  Code2,
+  Search,
+  X,
+} from 'lucide-react';
+import { OutlineNode, OutlineNodeType, Settings } from '../types';
+import { translations } from '../utils/i18n';
+
+interface StructureOutlineProps {
+  outline: OutlineNode[];
+  error?: string;
+  settings: Settings;
+  onSelectLine: (line: number, shouldFocus?: boolean) => void;
+}
+
+export const StructureOutline: React.FC<StructureOutlineProps> = ({
+  outline,
+  error,
+  settings,
+  onSelectLine,
+}) => {
+  const [localSearch, setLocalSearch] = useState('');
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const t = translations[settings.language] || translations.ru;
+
+  const searchQuery = localSearch;
+
+  // Flatten and find all matching nodes
+  const matchingNodes = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+
+    const matches: OutlineNode[] = [];
+    const q = searchQuery.toLowerCase();
+
+    function searchTraverse(node: OutlineNode) {
+      const matchLabel = node.label.toLowerCase().includes(q);
+      const matchVal = node.value ? node.value.toLowerCase().includes(q) : false;
+
+      if (matchLabel || matchVal) {
+        matches.push(node);
+      }
+      if (node.children) {
+        node.children.forEach(searchTraverse);
+      }
+    }
+
+    outline.forEach(searchTraverse);
+    return matches;
+  }, [outline, searchQuery]);
+
+  const [hasJumped, setHasJumped] = useState(false);
+
+  // Reset match index when query changes without stealing focus or jumping prematurely
+  useEffect(() => {
+    setCurrentMatchIndex(0);
+    setHasJumped(false);
+  }, [searchQuery]);
+
+  const jumpToMatch = (idx: number) => {
+    if (matchingNodes.length === 0) return;
+    setCurrentMatchIndex(idx);
+    setHasJumped(true);
+    onSelectLine(matchingNodes[idx].line, false);
+  };
+
+  const handleNextMatch = () => {
+    if (matchingNodes.length === 0) return;
+    const nextIdx = hasJumped ? (currentMatchIndex + 1) % matchingNodes.length : 0;
+    jumpToMatch(nextIdx);
+  };
+
+  const handlePrevMatch = () => {
+    if (matchingNodes.length === 0) return;
+    const prevIdx = hasJumped
+      ? (currentMatchIndex - 1 + matchingNodes.length) % matchingNodes.length
+      : matchingNodes.length - 1;
+    jumpToMatch(prevIdx);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        handlePrevMatch();
+      } else {
+        handleNextMatch();
+      }
+    }
+  };
+
+  const activeMatchedId = matchingNodes[currentMatchIndex]?.id;
+
+  return (
+    <aside className="w-80 bg-base-surface border-l border-base-border flex flex-col h-full select-none flex-shrink-0 text-gray-800 dark:text-gray-200">
+      {/* Header */}
+      <div className="p-3 border-b border-base-border flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <FolderTree className="w-4 h-4 text-accent" />
+          <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            {t.structureOutline}
+          </span>
+        </div>
+        <span className="text-[10px] text-gray-400 font-mono">{t.astMap}</span>
+      </div>
+
+      {/* Search Bar with match counter and navigation buttons */}
+      <div className="p-2 border-b border-base-border space-y-1.5">
+        <div className="relative flex items-center">
+          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 pointer-events-none" />
+          <input
+            type="text"
+            placeholder={t.searchOutline}
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="w-full bg-gray-100 dark:bg-black/30 text-gray-800 dark:text-gray-200 text-xs rounded-xl pl-8 pr-16 py-1.5 border border-base-border focus:outline-none focus:border-accent transition-colors"
+          />
+          {localSearch && (
+            <button
+              onClick={() => setLocalSearch('')}
+              className="absolute right-12 text-gray-400 hover:text-gray-700 dark:hover:text-white p-0.5"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+
+          {/* Up & Down arrow buttons */}
+          <div className="absolute right-1.5 flex items-center space-x-0.5">
+            <button
+              onClick={handlePrevMatch}
+              disabled={matchingNodes.length === 0}
+              className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-accent disabled:opacity-30"
+              title={t.prevMatch}
+            >
+              <ChevronUp className="w-3 h-3" />
+            </button>
+            <button
+              onClick={handleNextMatch}
+              disabled={matchingNodes.length === 0}
+              className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-accent disabled:opacity-30"
+              title={t.nextMatch}
+            >
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+
+        {/* Match counter badge */}
+        {searchQuery && (
+          <div className="flex items-center justify-between text-[11px] px-1">
+            <span className="text-gray-500">
+              {matchingNodes.length > 0
+                ? t.matchesFound
+                    .replace('{current}', String(currentMatchIndex + 1))
+                    .replace('{total}', String(matchingNodes.length))
+                : t.noMatches}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-2">
+        {error ? (
+          <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-600 dark:text-red-300 flex items-start space-x-2.5">
+            <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">{t.validationError}</p>
+              <p className="mt-1 text-[11px] leading-relaxed opacity-90">{error}</p>
+            </div>
+          </div>
+        ) : outline.length === 0 ? (
+          <div className="text-center text-xs text-gray-400 dark:text-gray-500 py-12">
+            <Code2 className="w-8 h-8 mx-auto mb-2 opacity-30 text-accent" />
+            {t.noStructure}
+          </div>
+        ) : (
+          <div className="space-y-0.5">
+            {outline.map((node) => (
+              <OutlineItem
+                key={node.id}
+                node={node}
+                level={0}
+                onSelectLine={onSelectLine}
+                searchFilter={searchQuery}
+                activeMatchedId={activeMatchedId}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+};
+
+interface OutlineItemProps {
+  node: OutlineNode;
+  level: number;
+  onSelectLine: (line: number, shouldFocus?: boolean) => void;
+  searchFilter: string;
+  activeMatchedId?: string;
+}
+
+const OutlineItem: React.FC<OutlineItemProps> = ({
+  node,
+  level,
+  onSelectLine,
+  searchFilter,
+  activeMatchedId,
+}) => {
+  const [collapsed, setCollapsed] = useState(false);
+  const hasChildren = node.children && node.children.length > 0;
+
+  // Filter check
+  const isDirectMatch =
+    Boolean(searchFilter) &&
+    (node.label.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      (node.value ? node.value.toLowerCase().includes(searchFilter.toLowerCase()) : false));
+
+  const hasMatchingDescendant = useMemo(() => {
+    if (!searchFilter.trim() || !hasChildren) return false;
+    const q = searchFilter.toLowerCase();
+    function check(n: OutlineNode): boolean {
+      if (
+        n.label.toLowerCase().includes(q) ||
+        (n.value && n.value.toLowerCase().includes(q))
+      ) {
+        return true;
+      }
+      return Boolean(n.children && n.children.some(check));
+    }
+    return node.children!.some(check);
+  }, [node.children, searchFilter, hasChildren]);
+
+  // Auto-expand if child matches search
+  useEffect(() => {
+    if (hasMatchingDescendant && collapsed) {
+      setCollapsed(false);
+    }
+  }, [hasMatchingDescendant]);
+
+  const isActiveMatch = activeMatchedId === node.id;
+
+  const getTypeBadge = (type: OutlineNodeType) => {
+    switch (type) {
+      case 'object':
+        return (
+          <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30">
+            Object
+          </span>
+        );
+      case 'list':
+        return (
+          <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+            List
+          </span>
+        );
+      case 'string':
+        return (
+          <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+            String
+          </span>
+        );
+      case 'number':
+        return (
+          <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+            Number
+          </span>
+        );
+      case 'boolean':
+        return (
+          <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-pink-500/15 text-pink-600 dark:text-pink-400 border border-pink-500/30">
+            Boolean
+          </span>
+        );
+      case 'section':
+        return (
+          <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">
+            Section
+          </span>
+        );
+    }
+  };
+
+  const isVisible = !searchFilter || isDirectMatch || hasMatchingDescendant;
+  if (!isVisible) return null;
+
+  return (
+    <div className="select-none">
+      <div
+        onClick={() => onSelectLine(node.line, true)}
+        style={{ paddingLeft: `${level * 14 + 6}px` }}
+        className={`group flex items-center justify-between py-1 px-1.5 rounded-xl text-xs cursor-pointer transition-all ${
+          isActiveMatch
+            ? 'bg-accent/25 text-gray-900 dark:text-white font-semibold border border-accent ring-1 ring-accent'
+            : isDirectMatch
+            ? 'bg-amber-400/20 text-gray-900 dark:text-white font-medium border border-amber-400/50'
+            : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
+        }`}
+      >
+        <div className="flex items-center space-x-1.5 truncate min-w-0 pr-1">
+          {hasChildren ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setCollapsed(!collapsed);
+              }}
+              className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            >
+              {collapsed ? (
+                <ChevronRight className="w-3 h-3" />
+              ) : (
+                <ChevronDown className="w-3 h-3" />
+              )}
+            </button>
+          ) : (
+            <span className="w-3.5 inline-block" />
+          )}
+
+          <span
+            className={`font-mono truncate ${
+              isDirectMatch ? 'text-accent font-bold underline' : ''
+            }`}
+          >
+            {node.label}
+          </span>
+
+          {node.value && (
+            <span className="text-gray-500 text-[11px] truncate font-mono">
+              : {node.value}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center space-x-1.5 flex-shrink-0">
+          <span className="text-[10px] text-gray-400 font-mono hidden group-hover:inline">
+            L{node.line}
+          </span>
+          {getTypeBadge(node.type)}
+        </div>
+      </div>
+
+      {hasChildren && !collapsed && (
+        <div className="tree-line ml-3">
+          {node.children!.map((child) => (
+            <OutlineItem
+              key={child.id}
+              node={child}
+              level={level + 1}
+              onSelectLine={onSelectLine}
+              searchFilter={searchFilter}
+              activeMatchedId={activeMatchedId}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};

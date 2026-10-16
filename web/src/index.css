@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-base: #161b22;
+  --color-surface: #21262d;
+  --color-surface-hover: #30363d;
+  --color-border: #30363d;
+  --color-accent: #00d2b4;
+  --color-accent-hover: #00b89e;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--color-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+html:not(.dark) body {
+  color: #0f172a;
+}
+
+html.dark body {
+  color: #e6edf3;
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+html:not(.dark) ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+}
+html:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+/* Horizontal tags bar scroll styling */
+.horizontal-tags-scroll {
+  scrollbar-width: thin;
+}
+.horizontal-tags-scroll::-webkit-scrollbar {
+  height: 5px;
+}
+.horizontal-tags-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.horizontal-tags-scroll::-webkit-scrollbar-thumb {
+  background: rgba(150, 150, 150, 0.25);
+  border-radius: 9999px;
+}
+.horizontal-tags-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+
+/* Tree line styles for Outline */
+.tree-line {
+  position: relative;
+}
+.tree-line::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -12px;
+  width: 1px;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+html:not(.dark) .tree-line::before {
+  background-color: rgba(0, 0, 0, 0.12);
+}
