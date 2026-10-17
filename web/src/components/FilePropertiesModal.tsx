@@ -11,6 +11,8 @@ import {
   Eye,
   EyeOff,
   GitCommit,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import { OpenFile, Settings, FileRevision } from '../types';
 import { translations } from '../utils/i18n';
@@ -37,6 +39,7 @@ export const FilePropertiesModal: React.FC<FilePropertiesModalProps> = ({
   const [activeTab, setActiveTab] = useState<'props' | 'history'>('props');
   const [selectedRev, setSelectedRev] = useState<FileRevision | null>(null);
   const [showDiff, setShowDiff] = useState<boolean>(false);
+  const [fileDates, setFileDates] = useState<{ modifiedAt?: string; createdAt?: string }>({});
 
   const t = translations[settings.language] || translations.ru;
 
@@ -49,10 +52,14 @@ export const FilePropertiesModal: React.FC<FilePropertiesModalProps> = ({
         })
         .catch(() => {});
 
-      // 2. Query authoritative server hash
+      // 2. Query authoritative server hash and file timestamps
       api.getFileInfo(file.path)
         .then((info) => {
           if (info.sha256) setSha256(info.sha256);
+          setFileDates({
+            modifiedAt: info.modifiedAt,
+            createdAt: info.createdAt,
+          });
         })
         .catch(() => {});
     }
@@ -71,6 +78,24 @@ export const FilePropertiesModal: React.FC<FilePropertiesModalProps> = ({
   const lineCount = file.content.split('\n').length;
   const charCount = file.content.length;
   const byteSize = new Blob([file.content]).size;
+
+  const formatDate = (isoStr?: string) => {
+    if (!isoStr) return '—';
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return '—';
+      return d.toLocaleString(settings.language === 'en' ? 'en-US' : 'ru-RU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    } catch {
+      return isoStr;
+    }
+  };
 
   // Simple line diff calculation for preview
   const renderDiffLines = (revContent: string, currentContent: string) => {
@@ -158,7 +183,7 @@ export const FilePropertiesModal: React.FC<FilePropertiesModalProps> = ({
           <div className="p-6 space-y-4 text-xs">
             <div>
               <span className="block text-gray-500 dark:text-gray-400 uppercase font-semibold text-[10px] tracking-wider mb-1">
-                Имя файла
+                {t.fileName}
               </span>
               <p className="font-mono text-sm font-semibold text-gray-900 dark:text-white truncate">
                 {file.name}
@@ -167,7 +192,7 @@ export const FilePropertiesModal: React.FC<FilePropertiesModalProps> = ({
 
             <div>
               <span className="block text-gray-500 dark:text-gray-400 uppercase font-semibold text-[10px] tracking-wider mb-1">
-                Путь на сервере
+                {t.serverPath}
               </span>
               <p className="font-mono text-xs text-gray-700 dark:text-gray-300 break-all bg-gray-100 dark:bg-black/20 p-2.5 rounded-xl border border-base-border">
                 /{file.path}
@@ -191,6 +216,28 @@ export const FilePropertiesModal: React.FC<FilePropertiesModalProps> = ({
                 <span className="text-[10px] text-gray-500 dark:text-gray-400 block">{t.charCount}</span>
                 <span className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5 block">
                   {charCount}
+                </span>
+              </div>
+            </div>
+
+            {/* Standard File Timestamps: Modification Date & Creation Date */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-2xl bg-gray-100 dark:bg-black/20 border border-base-border">
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center space-x-1.5 mb-1">
+                  <Clock className="w-3.5 h-3.5 text-accent" />
+                  <span>{t.modifiedAt}</span>
+                </span>
+                <span className="text-xs font-semibold text-gray-900 dark:text-white font-mono block truncate">
+                  {formatDate(fileDates.modifiedAt)}
+                </span>
+              </div>
+              <div className="p-3 rounded-2xl bg-gray-100 dark:bg-black/20 border border-base-border">
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center space-x-1.5 mb-1">
+                  <Calendar className="w-3.5 h-3.5 text-accent" />
+                  <span>{t.createdAt}</span>
+                </span>
+                <span className="text-xs font-semibold text-gray-900 dark:text-white font-mono block truncate">
+                  {formatDate(fileDates.createdAt)}
                 </span>
               </div>
             </div>

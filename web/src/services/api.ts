@@ -1,4 +1,4 @@
-import { Settings, FileItem } from '../types';
+import { Settings, FileItem, FileInfo } from '../types';
 
 async function webFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers || {});
@@ -89,7 +89,7 @@ export const api = {
     return res.json();
   },
 
-  async getFileInfo(path: string): Promise<{ path: string; name: string; size: number; lineCount: number; charCount: number; sha256: string }> {
+  async getFileInfo(path: string): Promise<FileInfo> {
     const res = await webFetch(`/api/fs/info?path=${encodeURIComponent(path)}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

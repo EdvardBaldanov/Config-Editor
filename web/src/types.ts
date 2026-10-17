@@ -21,7 +21,19 @@ export interface FileItem {
   isDir: boolean;
   size: number;
   modTime: string;
+  createdAt?: string;
   extension: string;
+}
+
+export interface FileInfo {
+  path: string;
+  name: string;
+  size: number;
+  lineCount: number;
+  charCount: number;
+  sha256: string;
+  modifiedAt?: string;
+  createdAt?: string;
 }
 
 export type OutlineNodeType =

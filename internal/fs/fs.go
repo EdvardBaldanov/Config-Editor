@@ -17,6 +17,7 @@ type FileItem struct {
 	IsDir     bool      `json:"isDir"`
 	Size      int64     `json:"size"`
 	ModTime   time.Time `json:"modTime"`
+	CreatedAt time.Time `json:"createdAt"`
 	Extension string    `json:"extension"`
 }
 
@@ -68,12 +69,15 @@ func (s *Service) ListDir(rel string) ([]FileItem, error) {
 		// Normalize to forward slashes for web API
 		itemRel = filepath.ToSlash(itemRel)
 
+		modTime, createTime := GetFileTimes(info)
+
 		items = append(items, FileItem{
 			Name:      entry.Name(),
 			Path:      itemRel,
 			IsDir:     entry.IsDir(),
 			Size:      info.Size(),
-			ModTime:   info.ModTime(),
+			ModTime:   modTime,
+			CreatedAt: createTime,
 			Extension: strings.ToLower(filepath.Ext(entry.Name())),
 		})
 	}
@@ -114,12 +118,14 @@ func (s *Service) SearchFiles(query string) ([]FileItem, error) {
 		relLower := strings.ToLower(rel)
 
 		if q == "" || strings.Contains(nameLower, q) || strings.Contains(relLower, q) {
+			modTime, createTime := GetFileTimes(info)
 			items = append(items, FileItem{
 				Name:      info.Name(),
 				Path:      rel,
 				IsDir:     info.IsDir(),
 				Size:      info.Size(),
-				ModTime:   info.ModTime(),
+				ModTime:   modTime,
+				CreatedAt: createTime,
 				Extension: strings.ToLower(filepath.Ext(info.Name())),
 			})
 		}

@@ -432,23 +432,38 @@ func (s *Server) handleGetFileInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := s.fs.ReadFile(relPath)
+	fullPath, err := s.fs.SafePath(relPath)
 	if err != nil {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	modTime, createTime := appfs.GetFileTimes(info)
 	hash := sha256.Sum256(content)
 	hashHex := hex.EncodeToString(hash[:])
 	lineCount := strings.Count(string(content), "\n") + 1
 
 	jsonResponse(w, http.StatusOK, map[string]any{
-		"path":      relPath,
-		"name":      filepath.Base(relPath),
-		"size":      len(content),
-		"lineCount": lineCount,
-		"charCount": len(string(content)),
-		"sha256":    hashHex,
+		"path":       relPath,
+		"name":       filepath.Base(relPath),
+		"size":       len(content),
+		"lineCount":  lineCount,
+		"charCount":  len(string(content)),
+		"sha256":     hashHex,
+		"modifiedAt": modTime.Format(time.RFC3339),
+		"createdAt":  createTime.Format(time.RFC3339),
 	})
 }
 
