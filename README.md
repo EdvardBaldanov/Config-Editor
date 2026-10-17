@@ -1,115 +1,255 @@
 # Config Editor 🚀
 
-Modern, lightweight web-based configuration editor with **Monaco Editor**, interactive **AST structure map**, draggable resizable panels, and customizable branding. Single standalone binary for **Linux** and **Windows** with zero external runtime dependencies.
-
 [![Build & Release](https://github.com/EdvardBaldanov/Config-Editor/actions/workflows/build.yml/badge.svg)](https://github.com/EdvardBaldanov/Config-Editor/actions/workflows/build.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/EdvardBaldanov/Config-Editor?color=blue)](https://github.com/EdvardBaldanov/Config-Editor/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> [🇷🇺 Описание на русском](#-config-editor-на-русском) | [🇬🇧 English version below](#-config-editor-english)
 
 ---
 
-## ✨ Features
+## 🇷🇺 Config Editor (На русском)
 
-- **Monaco Editor Engine:** VS Code core editor with syntax highlighting for YAML, JSON, TOML, INI, Shell, Markdown, and Dockerfiles.
-- **Interactive Structure Outline (AST Map):** 
-  - Visual hierarchical tree navigation with data type badges (`Object`, `List`, `String`, `Boolean`, `Number`, `Section`).
-  - Search within structure outline with match counter (`X of Y`) and navigation arrows.
-  - Expand/collapse all outline sections.
-  - Quick jump tag cloud for rapid section switching.
-  - **Draggable resizable panel width** (with double-click reset to default 320px).
-- **Multi-Tab File Management:**
-  - Tabbed editing interface with unsaved changes indicators.
-  - Quick File Switcher / Search (`Ctrl+P`).
-  - File properties modal with live SHA-256 hash calculation and clipboard copy.
-  - Session edit history with diff preview and one-click revision restore.
-- **Dynamic Branding & Themes (via Web UI):**
-  - Change application title dynamically — updates navbar and `<title>` tab name.
-  - Upload custom icon/logo (.svg, .png, .ico, .webp) — updates favicon and navbar icon.
-  - Real-time Base & Accent Color pickers with light/dark luminance auto-contrast.
-  - Multi-language interface support (**Русский** / **English**).
-- **Security & Access Control:**
-  - Direct password authentication option (Login screen).
-  - Reverse proxy SSO compatibility (Authentik, Authelia via headers).
-  - Disableable REST API with secret `X-API-Key` generation.
-- **Single Binary Portability:**
-  - Embedded frontend assets (`go:embed`). Zero runtime dependencies!
-  - Automated CI/CD builds for **Linux (amd64, arm64)** and **Windows (amd64)**.
-  - Self-installing service flags (`-install` / `-uninstall`) with auto-detection for **systemd** and **OpenRC**.
+Современный, легкий веб-редактор конфигурационных файлов со встроенным ядром **Monaco Editor** (как в VS Code), интерактивной картой структуры документа (**AST Map**), динамическим изменением ширины панелей и гибкой кастомизацией тем и брендинга.
+
+Поставляется в виде **единого бинарного файла** под **Linux** и **Windows** без необходимости устанавливать Node.js, базы данных или другие внешние зависимости.
+
+### 📸 Скриншоты интерфейса
+
+![Главный интерфейс Config Editor](docs/screenshots/main-ui.png)
+*Главное окно: проводник файлов, редактор с вкладками, быстрый переход по тегам и AST-карта структуры документа.*
+
+![Настройки приложения и оформления](docs/screenshots/settings-modal.png)
+*Окно настроек: смена названия и иконки приложения, выбор палитры Base & Accent, язык интерфейса, параметры авторизации и управление REST API.*
 
 ---
 
-## 🚀 Quick Start
+### ✨ Ключевые возможности
 
-### Download Pre-built Binary
-Download the latest binary for your operating system from the **[GitHub Releases / Actions Artifacts](https://github.com/EdvardBaldanov/Config-Editor/releases)** page:
-- **Linux (amd64)**: `config-editor-linux-amd64`
-- **Linux (arm64)**: `config-editor-linux-arm64`
+- **Ядро редактора Monaco Editor:**
+  - Полноценный движок VS Code с подсветкой синтаксиса YAML, JSON, TOML, INI, Shell, Markdown, Dockerfile и др.
+  - Автоматическая адаптация размера редактора при изменении ширины панелей.
+- **Интерактивная карта структуры документа (AST Map):**
+  - Иерархическое дерево с бейджами типов данных (`Object`, `List`, `String`, `Boolean`, `Number`, `Section`).
+  - Быстрый переход к строке кода кликом по элементу дерева.
+  - Поиск по структуре с подсчетом совпадений (`X из Y`) и стрелками перехода.
+  - Кнопки «Свернуть все» и «Развернуть все».
+  - **Плавное изменение ширины панели** перетаскиванием левой границы (двойной клик сбрасывает на 320px, запоминает ширину в `localStorage`).
+  - Облако тегов корневых разделов под вкладками с поддержкой горизонтальной прокрутки колесиком мыши.
+- **Мультивкладочность и управление файлами:**
+  - Открытие нескольких файлов во вкладках с индикатором несохраненных изменений.
+  - Диалоговое окно подтверждения закрытия при наличии правок.
+  - Быстрый поиск и переключение между файлами (**Ctrl+P**).
+  - Проводник файлов: создание, удаление, переименование файлов и папок, Drag-and-drop загрузка.
+  - Свойства файла: подсчет SHA-256 хеша с кнопкой копирования, статистика по строкам и символам.
+  - Локальная история правок сессии с просмотром diff и восстановлением любой версии.
+- **Брендинг, стили и локализация:**
+  - Динамическая смена названия программы (обновляет заголовок и название вкладки браузера).
+  - Загрузка собственного логотипа (.svg, .png, .ico, .webp) — меняет логотип и favicon.
+  - Выбор палитры базового цвета (фон) и акцентного цвета (кнопки, курсор) с авто-контрастом шрифта.
+  - Темная и светлая темы оформления.
+  - Мультиязычный интерфейс (**Русский** и **English**).
+- **Безопасность:**
+  - Встроенный экран авторизации (парольная защита).
+  - Поддержка SSO-прокси (Authentik, Authelia и Traefik) через HTTP-заголовки.
+  - Отключаемый REST API с генератором секретных ключей `X-API-Key`.
+- **Единый переносимый бинарник:**
+  - Полностью статический исполняемый файл (`CGO_ENABLED=0`).
+  - Фронтенд встроен внутрь бинарника (`go:embed`).
+  - Автоматическая установка в качестве службы Linux (`-install` / `-uninstall`) с автоопределением **systemd** и **OpenRC**.
+
+---
+
+### 🚀 Быстрый запуск
+
+#### Скачивание готового бинарника
+Скачайте бинарник для вашей системы со страницы **[GitHub Releases](https://github.com/EdvardBaldanov/Config-Editor/releases)**:
 - **Windows (amd64)**: `config-editor-windows-amd64.exe`
+- **Linux (x86_64 / amd64)**: `config-editor-linux-amd64`
+- **Linux (ARM64)**: `config-editor-linux-arm64`
 
-### Running on Linux
+#### Запуск на Linux:
 ```bash
-# Make binary executable and run
 chmod +x config-editor-linux-amd64
 ./config-editor-linux-amd64 --port 8080 --workdir /etc/yaml-configs
 ```
 
-### Self-Installation as a System Service (Linux)
-The binary can automatically install itself as a systemd or OpenRC service:
+#### Автоустановка в качестве службы (Linux systemd / OpenRC):
+Бинарник умеет сам устанавливать и настраивать системный демон:
 ```bash
-# Auto-detects systemd or OpenRC and sets up service
+# Установка сервиса (автоматически определит systemd или OpenRC):
+sudo ./config-editor-linux-amd64 -install
+
+# Удаление сервиса:
+sudo ./config-editor-linux-amd64 -uninstall
+```
+
+#### Запуск на Windows:
+```powershell
+.\config-editor-windows-amd64.exe -port 8080 -workdir C:\configs
+```
+После запуска откройте в браузере: `http://localhost:8080` (или `http://<IP-сервера>:8080`).
+
+---
+
+### 🛠️ Сборка из исходников
+
+#### Требования:
+- **Go 1.22+**
+- **Node.js 20+** & **npm**
+
+```bash
+# 1. Клонирование репозитория
+git clone https://github.com/EdvardBaldanov/Config-Editor.git
+cd Config-Editor
+
+# 2. Сборка веб-интерфейса
+cd web
+npm install
+npm run build
+cd ..
+
+# 3. Компиляция бинарника
+# Для Linux:
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/config-editor ./cmd/server
+
+# Для Windows:
+go build -ldflags="-s -w" -o bin/config-editor.exe ./cmd/server
+```
+
+---
+
+### ⚙️ Флаги запуска и переменные окружения
+
+| Флаг | Переменная окружения | По умолчанию | Описание |
+|---|---|---|---|
+| `--port` | `CONFIG_PORT` | `8080` | Порт HTTP сервера |
+| `--workdir` | `CONFIG_WORKDIR` | `./data/configs` | Папка с редактируемыми конфигами |
+| `--data` | `CONFIG_DATADIR` | `./data` | Папка для настроек, логотипов и сессий |
+| `--auth-user` | `CONFIG_AUTH_USER` | `""` | Логин базовой авторизации |
+| `--auth-pass` | `CONFIG_AUTH_PASS` | `""` | Пароль авторизации |
+| `-install` | — | `false` | Установить как службу systemd/OpenRC (Linux) |
+| `-uninstall` | — | `false` | Удалить службу systemd/OpenRC (Linux) |
+
+---
+---
+
+<a name="english-version"></a>
+## 🇬🇧 Config Editor (English)
+
+Modern, lightweight web-based configuration editor powered by **Monaco Editor** (VS Code core), interactive document structure map (**AST Map**), draggable resizable sidebars, and customizable branding.
+
+Shipped as a **single standalone portable binary** for **Linux** and **Windows** with zero external runtime dependencies (no Node.js or databases needed at runtime).
+
+### 📸 Screenshots
+
+![Config Editor Main Interface](docs/screenshots/main-ui.png)
+*Main Workspace: file explorer, multi-tab editor, quick jump tag cloud, and AST structure map.*
+
+![Settings and Branding Modal](docs/screenshots/settings-modal.png)
+*Settings: application title & favicon, Base & Accent color palettes, language switch, security credentials, and REST API management.*
+
+---
+
+### ✨ Features
+
+- **Monaco Editor Core:** Full VS Code editor experience with syntax highlighting for YAML, JSON, TOML, INI, Shell, Markdown, and Dockerfile.
+- **Interactive Structure Outline (AST Map):**
+  - Hierarchical tree navigation with data type badges (`Object`, `List`, `String`, `Boolean`, `Number`, `Section`).
+  - Click any node to instantly jump to the corresponding code line.
+  - Search within outline with match counter (`X of Y`) and navigation arrows.
+  - One-click "Collapse All" / "Expand All" controls.
+  - **Draggable resizable panel width** (double-click resets to default 320px, state remembered in `localStorage`).
+  - Horizontal scrollable quick jump root tag cloud.
+- **Multi-Tab File Management:**
+  - Tabbed editing with dirty indicators.
+  - Unsaved changes confirmation dialog.
+  - Quick File Switcher / Search (**Ctrl+P**).
+  - File Explorer with folder navigation, inline create/rename/delete, and drag-and-drop file upload.
+  - File properties with instant SHA-256 hash calculation, one-click clipboard copy, and line/char statistics.
+  - Session edit history with visual diff preview and single-click revision rollback.
+- **Branding & Localization:**
+  - Dynamic application title (updates navbar and browser tab `<title>`).
+  - Custom logo & favicon upload (.svg, .png, .ico, .webp).
+  - Material 3 Base & Accent color pickers with automatic font contrast calculation.
+  - Dark and Light theme modes.
+  - Dual interface language support (**English** / **Русский**).
+- **Security & Access Control:**
+  - Built-in login screen with direct password protection.
+  - Reverse proxy SSO compatibility (Authentik, Authelia, Traefik).
+  - Disableable REST API with secret `X-API-Key` generation.
+- **Single Binary Portability:**
+  - Statically compiled standalone binary (`CGO_ENABLED=0`).
+  - Web UI assets embedded directly into the Go binary (`go:embed`).
+  - Built-in service installer (`-install` / `-uninstall`) with auto-detection for **systemd** and **OpenRC**.
+
+---
+
+### 🚀 Quick Start
+
+#### Download Pre-compiled Binary
+Grab the latest release from **[GitHub Releases](https://github.com/EdvardBaldanov/Config-Editor/releases)**:
+- **Windows (amd64)**: `config-editor-windows-amd64.exe`
+- **Linux (x86_64 / amd64)**: `config-editor-linux-amd64`
+- **Linux (ARM64)**: `config-editor-linux-arm64`
+
+#### Running on Linux:
+```bash
+chmod +x config-editor-linux-amd64
+./config-editor-linux-amd64 --port 8080 --workdir /etc/yaml-configs
+```
+
+#### Self-Installing as a Service (Linux systemd / OpenRC):
+```bash
+# Auto-detects systemd or OpenRC and registers system daemon:
 sudo ./config-editor-linux-amd64 -install
 
 # To uninstall service:
 sudo ./config-editor-linux-amd64 -uninstall
 ```
 
-### Running on Windows
+#### Running on Windows:
 ```powershell
 .\config-editor-windows-amd64.exe -port 8080 -workdir C:\configs
 ```
-Then open your browser at `http://localhost:8080`.
+Open your browser at `http://localhost:8080`.
 
 ---
 
-## 🛠️ Building from Source
+### 🛠️ Building from Source
 
-### Prerequisites
+#### Prerequisites:
 - **Go 1.22+**
 - **Node.js 20+** & **npm**
 
-### Build Steps
+```bash
+# 1. Clone repository
+git clone https://github.com/EdvardBaldanov/Config-Editor.git
+cd Config-Editor
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/EdvardBaldanov/Config-Editor.git
-   cd Config-Editor
-   ```
+# 2. Build Web Frontend
+cd web
+npm install
+npm run build
+cd ..
 
-2. **Build Web Frontend:**
-   ```bash
-   cd web
-   npm install
-   npm run build
-   cd ..
-   ```
+# 3. Build Go Binary
+# For Linux:
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/config-editor ./cmd/server
 
-3. **Compile Go Binary:**
-   - **For Linux:**
-     ```bash
-     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/config-editor ./cmd/server
-     ```
-   - **For Windows:**
-     ```powershell
-     go build -ldflags="-s -w" -o bin/config-editor.exe ./cmd/server
-     ```
+# For Windows:
+go build -ldflags="-s -w" -o bin/config-editor.exe ./cmd/server
+```
 
 ---
 
-## ⚙️ Configuration Flags & Environment Variables
+### ⚙️ Command Line Flags & Environment Variables
 
-| Flag | Env Variable | Default | Description |
+| Flag | Environment Variable | Default | Description |
 |---|---|---|---|
 | `--port` | `CONFIG_PORT` | `8080` | HTTP port to listen on |
-| `--workdir` | `CONFIG_WORKDIR` | `./data/configs` | Root directory for managed config files |
-| `--data` | `CONFIG_DATADIR` | `./data` | Directory for persistent settings, history & icons |
+| `--workdir` | `CONFIG_WORKDIR` | `./data/configs` | Working directory containing config files |
+| `--data` | `CONFIG_DATADIR` | `./data` | Directory for persistent settings and icons |
 | `--auth-user` | `CONFIG_AUTH_USER` | `""` | Basic Auth username (disabled if empty) |
 | `--auth-pass` | `CONFIG_AUTH_PASS` | `""` | Basic Auth password |
 | `-install` | — | `false` | Install as systemd/OpenRC service (Linux) |
