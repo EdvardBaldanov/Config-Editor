@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 )
 
 const (
@@ -43,6 +44,9 @@ func detectInitSystem() string {
 }
 
 func handleInstall() {
+	if runtime.GOOS == "windows" {
+		log.Fatalf("Service installation (-install) is designed for Linux systemd and OpenRC systems.")
+	}
 	if os.Geteuid() != 0 {
 		log.Fatalf("Error: root privileges required to install system service. Please run with sudo: sudo %s -install", os.Args[0])
 	}
@@ -201,6 +205,9 @@ start_pre() {
 }
 
 func handleUninstall() {
+	if runtime.GOOS == "windows" {
+		log.Fatalf("Service uninstallation (-uninstall) is designed for Linux systemd and OpenRC systems.")
+	}
 	if os.Geteuid() != 0 {
 		log.Fatalf("Error: root privileges required to uninstall system service. Please run with sudo: sudo %s -uninstall", os.Args[0])
 	}

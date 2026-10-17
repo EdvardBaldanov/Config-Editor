@@ -8,7 +8,6 @@ bin/
 # Node dependencies and build
 node_modules/
 web/node_modules/
-web/dist/
 
 # Runtime data & secrets
 config.env
