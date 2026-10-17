@@ -11,9 +11,13 @@ import {
   Shield,
   Sun,
   Moon,
+  Cpu,
+  Copy,
+  Key,
 } from 'lucide-react';
 import { Settings } from '../types';
 import { translations, Language } from '../utils/i18n';
+import { copyToClipboard } from '../utils/color';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -56,6 +60,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [authEnabled, setAuthEnabled] = useState(settings.authEnabled || false);
   const [authUser, setAuthUser] = useState(settings.authUser || 'admin');
   const [authPass, setAuthPass] = useState('');
+  const [apiEnabled, setApiEnabled] = useState(settings.apiEnabled || false);
+  const [apiKey, setApiKey] = useState(settings.apiKey || '');
+  const [copiedKey, setCopiedKey] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,12 +81,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const generateRandomKey = () => {
+    const chars = 'abcdef0123456789';
+    let key = 'cs_live_';
+    for (let i = 0; i < 32; i++) {
+      key += chars[Math.floor(Math.random() * chars.length)];
+    }
+    setApiKey(key);
+  };
+
+  const handleCopyKey = async () => {
+    if (!apiKey) return;
+    const ok = await copyToClipboard(apiKey);
+    if (ok) {
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 2000);
+    }
+  };
+
   const handleSave = async () => {
     setIsSubmitting(true);
     try {
       if (selectedFile) {
         await onUploadIcon(selectedFile);
       }
+      const activeKey = apiEnabled
+        ? (apiKey || 'cs_live_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15))
+        : '';
       const payload: Partial<Settings> = {
         appTitle: title.trim() || 'Config Studio',
         baseColor,
@@ -87,6 +116,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         language,
         authEnabled,
         authUser: authUser.trim() || 'admin',
+        apiEnabled,
+        apiKey: activeKey,
       };
       if (authPass) {
         payload.authPass = authPass;
@@ -107,6 +138,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setThemeMode('dark');
     setLanguage('ru');
     setAuthEnabled(false);
+    setApiEnabled(false);
+    setApiKey('');
   };
 
   return (
@@ -392,6 +425,73 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="w-full px-3 py-1.5 bg-white dark:bg-black/30 border border-base-border rounded-xl text-xs text-gray-900 dark:text-white focus:outline-none focus:border-accent"
                   />
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* REST API Access Setting */}
+          <div className="p-4 rounded-2xl bg-gray-100/60 dark:bg-black/20 border border-base-border space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                <Cpu className="w-4 h-4 text-accent" />
+                <span>{t.enableApi}</span>
+              </label>
+              <input
+                type="checkbox"
+                checked={apiEnabled}
+                onChange={(e) => {
+                  const val = e.target.checked;
+                  setApiEnabled(val);
+                  if (val && !apiKey) {
+                    generateRandomKey();
+                  }
+                }}
+                className="w-4 h-4 text-accent rounded cursor-pointer accent-teal-500"
+              />
+            </div>
+
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">
+              {t.enableApiHelp}
+            </p>
+
+            {apiEnabled ? (
+              <div className="space-y-2 pt-2 border-t border-base-border">
+                <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300">
+                  {t.apiKey}
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={apiKey}
+                    className="flex-1 px-3 py-1.5 bg-white dark:bg-black/30 border border-base-border rounded-xl text-xs font-mono text-gray-900 dark:text-white select-all focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCopyKey}
+                    className="px-2.5 py-1.5 rounded-xl border border-base-border hover:border-accent text-xs flex items-center space-x-1 bg-white dark:bg-white/5"
+                    title="Copy API Key"
+                  >
+                    {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKey ? t.copied : 'Copy'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={generateRandomKey}
+                    className="px-2.5 py-1.5 rounded-xl border border-base-border hover:border-accent text-xs flex items-center space-x-1 bg-white dark:bg-white/5"
+                    title={t.generateApiKey}
+                  >
+                    <Key className="w-3.5 h-3.5 text-accent" />
+                  </button>
+                </div>
+                <p className="text-[10px] text-gray-400 font-mono">
+                  curl -H "X-API-Key: {apiKey ? apiKey.substring(0, 10) + '...' : 'YOUR_KEY'}" http://&lt;host&gt;:8080/api/fs/tree
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2 text-[11px] text-emerald-600 dark:text-emerald-400 pt-1">
+                <Check className="w-3.5 h-3.5" />
+                <span>{t.apiDisabledNote}</span>
               </div>
             )}
           </div>

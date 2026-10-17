@@ -170,6 +170,51 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		}
 
 		settings := s.config.Get()
+
+		// Distinguish internal Web UI requests from external REST API requests:
+		isWebUI := r.Header.Get("X-ConfigStudio-Web") == "1"
+		if !isWebUI {
+			if cookie, err := r.Cookie("cs_session"); err == nil && cookie.Value != "" {
+				s.sessionsMu.RLock()
+				exp, ok := s.sessions[cookie.Value]
+				s.sessionsMu.RUnlock()
+				if ok && time.Now().Before(exp) {
+					isWebUI = true
+				}
+			}
+		}
+
+		// If NOT from Web UI, this is an external REST API request
+		if !isWebUI {
+			if !settings.ApiEnabled {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"error": "REST API is disabled in settings. External programmatic access is blocked.",
+				})
+				return
+			}
+
+			// If API is enabled and an API key is configured, validate it
+			if settings.ApiKey != "" {
+				clientKey := r.Header.Get("X-API-Key")
+				if clientKey == "" {
+					authHeader := r.Header.Get("Authorization")
+					if strings.HasPrefix(authHeader, "Bearer ") {
+						clientKey = strings.TrimPrefix(authHeader, "Bearer ")
+					}
+				}
+				if clientKey != settings.ApiKey {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusUnauthorized)
+					_ = json.NewEncoder(w).Encode(map[string]string{
+						"error": "Invalid or missing API Key. Provide X-API-Key or Authorization: Bearer <key>",
+					})
+					return
+				}
+			}
+		}
+
 		requiresAuth := settings.AuthEnabled || s.cfg.AuthUser != ""
 
 		if !requiresAuth {

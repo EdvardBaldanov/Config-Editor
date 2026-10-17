@@ -1,14 +1,23 @@
 import { Settings, FileItem } from '../types';
 
+async function webFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(options.headers || {});
+  headers.set('X-ConfigStudio-Web', '1');
+  return fetch(url, {
+    ...options,
+    headers,
+  });
+}
+
 export const api = {
   async getAuthStatus(): Promise<{ authRequired: boolean; authenticated: boolean; user: string }> {
-    const res = await fetch('/api/auth/status');
+    const res = await webFetch('/api/auth/status');
     if (!res.ok) return { authRequired: false, authenticated: true, user: 'guest' };
     return res.json();
   },
 
   async login(username: string, password: string): Promise<void> {
-    const res = await fetch('/api/auth/login', {
+    const res = await webFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
@@ -20,17 +29,17 @@ export const api = {
   },
 
   async logout(): Promise<void> {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await webFetch('/api/auth/logout', { method: 'POST' });
   },
 
   async getSettings(): Promise<Settings> {
-    const res = await fetch('/api/settings');
+    const res = await webFetch('/api/settings');
     if (!res.ok) throw new Error('Failed to load settings');
     return res.json();
   },
 
   async updateSettings(settings: Partial<Settings>): Promise<Settings> {
-    const res = await fetch('/api/settings', {
+    const res = await webFetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
@@ -45,7 +54,7 @@ export const api = {
   async uploadIcon(file: File): Promise<Settings> {
     const formData = new FormData();
     formData.append('icon', file);
-    const res = await fetch('/api/settings/icon', {
+    const res = await webFetch('/api/settings/icon', {
       method: 'POST',
       body: formData,
     });
@@ -59,7 +68,7 @@ export const api = {
   async getTree(path: string = ''): Promise<{ path: string; items: FileItem[] }> {
     const params = new URLSearchParams();
     if (path) params.set('path', path);
-    const res = await fetch(`/api/fs/tree?${params}`);
+    const res = await webFetch(`/api/fs/tree?${params}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to list directory');
@@ -72,7 +81,7 @@ export const api = {
   },
 
   async getFile(path: string): Promise<{ path: string; name: string; content: string }> {
-    const res = await fetch(`/api/fs/file?path=${encodeURIComponent(path)}`);
+    const res = await webFetch(`/api/fs/file?path=${encodeURIComponent(path)}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to read file');
@@ -81,7 +90,7 @@ export const api = {
   },
 
   async getFileInfo(path: string): Promise<{ path: string; name: string; size: number; lineCount: number; charCount: number; sha256: string }> {
-    const res = await fetch(`/api/fs/info?path=${encodeURIComponent(path)}`);
+    const res = await webFetch(`/api/fs/info?path=${encodeURIComponent(path)}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to get file info');
@@ -90,7 +99,7 @@ export const api = {
   },
 
   async saveFile(path: string, content: string, backup: boolean = true): Promise<void> {
-    const res = await fetch('/api/fs/file', {
+    const res = await webFetch('/api/fs/file', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path, content, backup }),
@@ -102,7 +111,7 @@ export const api = {
   },
 
   async createItem(path: string, isDir: boolean): Promise<void> {
-    const res = await fetch('/api/fs/create', {
+    const res = await webFetch('/api/fs/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path, isDir }),
@@ -114,7 +123,7 @@ export const api = {
   },
 
   async deleteItem(path: string): Promise<void> {
-    const res = await fetch('/api/fs/delete', {
+    const res = await webFetch('/api/fs/delete', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path }),
@@ -126,7 +135,7 @@ export const api = {
   },
 
   async renameItem(oldPath: string, newPath: string): Promise<void> {
-    const res = await fetch('/api/fs/rename', {
+    const res = await webFetch('/api/fs/rename', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ oldPath, newPath }),
@@ -141,7 +150,7 @@ export const api = {
     const formData = new FormData();
     formData.append('path', dirPath);
     formData.append('file', file);
-    const res = await fetch('/api/fs/upload', {
+    const res = await webFetch('/api/fs/upload', {
       method: 'POST',
       body: formData,
     });
@@ -158,7 +167,7 @@ export const api = {
   },
 
   async searchFiles(query: string = ''): Promise<FileItem[]> {
-    const res = await fetch(`/api/fs/search?q=${encodeURIComponent(query)}`);
+    const res = await webFetch(`/api/fs/search?q=${encodeURIComponent(query)}`);
     if (!res.ok) return [];
     const data = await res.json().catch(() => ({}));
     return data.items || [];

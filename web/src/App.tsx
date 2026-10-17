@@ -22,6 +22,8 @@ export const App: React.FC = () => {
     hasCustomIcon: false,
     authEnabled: false,
     authUser: 'admin',
+    apiEnabled: false,
+    apiKey: '',
   });
 
   const [authStatus, setAuthStatus] = useState<{

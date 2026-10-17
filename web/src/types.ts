@@ -11,6 +11,8 @@ export interface Settings {
   authEnabled: boolean;
   authUser: string;
   authPass?: string;
+  apiEnabled: boolean;
+  apiKey?: string;
 }
 
 export interface FileItem {

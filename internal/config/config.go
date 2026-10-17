@@ -22,6 +22,8 @@ type Settings struct {
 	AuthEnabled   bool   `json:"authEnabled" yaml:"auth_enabled"`
 	AuthUser      string `json:"authUser" yaml:"auth_user"`
 	AuthPass      string `json:"authPass,omitempty" yaml:"auth_pass,omitempty"`
+	ApiEnabled    bool   `json:"apiEnabled" yaml:"api_enabled"`
+	ApiKey        string `json:"apiKey,omitempty" yaml:"api_key,omitempty"`
 }
 
 type Manager struct {
@@ -42,6 +44,8 @@ func DefaultSettings() Settings {
 		AuthEnabled:   false,
 		AuthUser:      "admin",
 		AuthPass:      "admin",
+		ApiEnabled:    false,
+		ApiKey:        "",
 	}
 }
 
@@ -178,6 +182,10 @@ func (m *Manager) Update(s Settings) error {
 	}
 	if s.AuthPass != "" {
 		m.current.AuthPass = s.AuthPass
+	}
+	m.current.ApiEnabled = s.ApiEnabled
+	if s.ApiKey != "" {
+		m.current.ApiKey = s.ApiKey
 	}
 
 	return m.save()

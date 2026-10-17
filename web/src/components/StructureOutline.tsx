@@ -8,6 +8,8 @@ import {
   Code2,
   Search,
   X,
+  ChevronsDownUp,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { OutlineNode, OutlineNodeType, Settings } from '../types';
 import { translations } from '../utils/i18n';
@@ -27,8 +29,10 @@ export const StructureOutline: React.FC<StructureOutlineProps> = ({
 }) => {
   const [localSearch, setLocalSearch] = useState('');
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
-  const t = translations[settings.language] || translations.ru;
+  const [collapsedSet, setCollapsedSet] = useState<Set<string>>(new Set());
+  const [hasJumped, setHasJumped] = useState(false);
 
+  const t = translations[settings.language] || translations.ru;
   const searchQuery = localSearch;
 
   // Flatten and find all matching nodes
@@ -53,8 +57,6 @@ export const StructureOutline: React.FC<StructureOutlineProps> = ({
     outline.forEach(searchTraverse);
     return matches;
   }, [outline, searchQuery]);
-
-  const [hasJumped, setHasJumped] = useState(false);
 
   // Reset match index when query changes without stealing focus or jumping prematurely
   useEffect(() => {
@@ -94,6 +96,36 @@ export const StructureOutline: React.FC<StructureOutlineProps> = ({
     }
   };
 
+  const toggleCollapse = (id: string) => {
+    setCollapsedSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleCollapseAll = () => {
+    const parentIds = new Set<string>();
+    const collect = (nodes: OutlineNode[]) => {
+      for (const n of nodes) {
+        if (n.children && n.children.length > 0) {
+          parentIds.add(n.id);
+          collect(n.children);
+        }
+      }
+    };
+    collect(outline);
+    setCollapsedSet(parentIds);
+  };
+
+  const handleExpandAll = () => {
+    setCollapsedSet(new Set());
+  };
+
   const activeMatchedId = matchingNodes[currentMatchIndex]?.id;
 
   return (
@@ -106,7 +138,22 @@ export const StructureOutline: React.FC<StructureOutlineProps> = ({
             {t.structureOutline}
           </span>
         </div>
-        <span className="text-[10px] text-gray-400 font-mono">{t.astMap}</span>
+        <div className="flex items-center space-x-1">
+          <button
+            onClick={handleCollapseAll}
+            className="p-1 rounded-lg text-gray-400 hover:text-accent hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            title={t.collapseAll}
+          >
+            <ChevronsDownUp className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleExpandAll}
+            className="p-1 rounded-lg text-gray-400 hover:text-accent hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            title={t.expandAll}
+          >
+            <ChevronsUpDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Search Bar with match counter and navigation buttons */}
@@ -190,10 +237,32 @@ export const StructureOutline: React.FC<StructureOutlineProps> = ({
                 onSelectLine={onSelectLine}
                 searchFilter={searchQuery}
                 activeMatchedId={activeMatchedId}
+                collapsedSet={collapsedSet}
+                onToggleCollapse={toggleCollapse}
               />
             ))}
           </div>
         )}
+      </div>
+
+      {/* Bottom Footer: Expand All / Collapse All buttons */}
+      <div className="p-2 border-t border-base-border bg-base-surface flex items-center space-x-2 text-xs flex-shrink-0">
+        <button
+          onClick={handleCollapseAll}
+          className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 hover:text-accent border border-base-border transition-all active:scale-95 shadow-2xs"
+          title={t.collapseAll}
+        >
+          <ChevronsDownUp className="w-3.5 h-3.5 text-accent" />
+          <span className="font-medium text-[11px]">{t.collapseAll}</span>
+        </button>
+        <button
+          onClick={handleExpandAll}
+          className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 hover:text-accent border border-base-border transition-all active:scale-95 shadow-2xs"
+          title={t.expandAll}
+        >
+          <ChevronsUpDown className="w-3.5 h-3.5 text-accent" />
+          <span className="font-medium text-[11px]">{t.expandAll}</span>
+        </button>
       </div>
     </aside>
   );
@@ -205,6 +274,8 @@ interface OutlineItemProps {
   onSelectLine: (line: number, shouldFocus?: boolean) => void;
   searchFilter: string;
   activeMatchedId?: string;
+  collapsedSet: Set<string>;
+  onToggleCollapse: (id: string) => void;
 }
 
 const OutlineItem: React.FC<OutlineItemProps> = ({
@@ -213,9 +284,11 @@ const OutlineItem: React.FC<OutlineItemProps> = ({
   onSelectLine,
   searchFilter,
   activeMatchedId,
+  collapsedSet,
+  onToggleCollapse,
 }) => {
-  const [collapsed, setCollapsed] = useState(false);
   const hasChildren = node.children && node.children.length > 0;
+  const isCollapsed = collapsedSet.has(node.id);
 
   // Filter check
   const isDirectMatch =
@@ -240,8 +313,8 @@ const OutlineItem: React.FC<OutlineItemProps> = ({
 
   // Auto-expand if child matches search
   useEffect(() => {
-    if (hasMatchingDescendant && collapsed) {
-      setCollapsed(false);
+    if (hasMatchingDescendant && isCollapsed) {
+      onToggleCollapse(node.id);
     }
   }, [hasMatchingDescendant]);
 
@@ -309,11 +382,11 @@ const OutlineItem: React.FC<OutlineItemProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setCollapsed(!collapsed);
+                onToggleCollapse(node.id);
               }}
               className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-900 dark:hover:text-white"
             >
-              {collapsed ? (
+              {isCollapsed ? (
                 <ChevronRight className="w-3 h-3" />
               ) : (
                 <ChevronDown className="w-3 h-3" />
@@ -346,7 +419,7 @@ const OutlineItem: React.FC<OutlineItemProps> = ({
         </div>
       </div>
 
-      {hasChildren && !collapsed && (
+      {hasChildren && !isCollapsed && (
         <div className="tree-line ml-3">
           {node.children!.map((child) => (
             <OutlineItem
@@ -356,6 +429,8 @@ const OutlineItem: React.FC<OutlineItemProps> = ({
               onSelectLine={onSelectLine}
               searchFilter={searchFilter}
               activeMatchedId={activeMatchedId}
+              collapsedSet={collapsedSet}
+              onToggleCollapse={onToggleCollapse}
             />
           ))}
         </div>
