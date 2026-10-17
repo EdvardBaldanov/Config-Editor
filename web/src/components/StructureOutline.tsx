@@ -32,6 +32,76 @@ export const StructureOutline: React.FC<StructureOutlineProps> = ({
   const [collapsedSet, setCollapsedSet] = useState<Set<string>>(new Set());
   const [hasJumped, setHasJumped] = useState(false);
 
+  // Saved width with localStorage persistence
+  const [width, setWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('cs_ast_width');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 200 && parsed <= 1200) {
+          return parsed;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return 320;
+  });
+
+  const [isResizing, setIsResizing] = useState(false);
+
+  // Drag-to-resize listener
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = window.innerWidth - e.clientX;
+      const minW = 200;
+      const maxW = Math.max(minW, Math.floor(window.innerWidth * 0.65));
+      const clamped = Math.min(Math.max(newWidth, minW), maxW);
+      setWidth(clamped);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    const prevCursor = document.body.style.cursor;
+    const prevUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.body.style.cursor = prevCursor;
+      document.body.style.userSelect = prevUserSelect;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
+  // Persist width when resized
+  useEffect(() => {
+    if (!isResizing) {
+      try {
+        localStorage.setItem('cs_ast_width', String(width));
+      } catch {
+        // ignore
+      }
+    }
+  }, [width, isResizing]);
+
+  const handleResetWidth = () => {
+    setWidth(320);
+    try {
+      localStorage.setItem('cs_ast_width', '320');
+    } catch {
+      // ignore
+    }
+  };
+
   const t = translations[settings.language] || translations.ru;
   const searchQuery = localSearch;
 
@@ -129,7 +199,43 @@ export const StructureOutline: React.FC<StructureOutlineProps> = ({
   const activeMatchedId = matchingNodes[currentMatchIndex]?.id;
 
   return (
-    <aside className="w-80 bg-base-surface border-l border-base-border flex flex-col h-full select-none flex-shrink-0 text-gray-800 dark:text-gray-200">
+    <aside
+      style={{ width: `${width}px` }}
+      className="relative bg-base-surface border-l border-base-border flex flex-col h-full select-none flex-shrink-0 text-gray-800 dark:text-gray-200"
+    >
+      {/* Resizer Handle */}
+      <div
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setIsResizing(true);
+        }}
+        onDoubleClick={handleResetWidth}
+        title={t.resizeWidthHelp}
+        className="absolute top-0 bottom-0 -left-1.5 w-3 cursor-col-resize z-30 group flex items-center justify-center select-none"
+      >
+        {/* Full-height subtle line on hover/active */}
+        <div
+          className={`absolute inset-y-0 w-0.5 transition-opacity ${
+            isResizing ? 'opacity-100' : 'opacity-0 group-hover:opacity-75'
+          }`}
+          style={{ backgroundColor: settings.accentColor }}
+        />
+        {/* Center grab handle indicator */}
+        <div
+          className={`w-1 h-8 rounded-full z-10 transition-all ${
+            isResizing
+              ? 'opacity-100 scale-110 shadow-sm'
+              : 'opacity-0 group-hover:opacity-100'
+          }`}
+          style={{ backgroundColor: settings.accentColor }}
+        />
+      </div>
+
+      {/* Fullscreen overlay to capture events cleanly during drag */}
+      {isResizing && (
+        <div className="fixed inset-0 z-50 cursor-col-resize select-none" />
+      )}
+
       {/* Header */}
       <div className="p-3 border-b border-base-border flex items-center justify-between">
         <div className="flex items-center space-x-2">

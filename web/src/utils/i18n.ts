@@ -80,6 +80,7 @@ export const translations = {
     apiKey: 'Секретный API Ключ (X-API-Key)',
     generateApiKey: 'Сгенерировать новый ключ',
     apiKeyHelp: 'Передавайте заголовок X-API-Key или Authorization: Bearer <ключ> в запросах curl и скриптах.',
+    resizeWidthHelp: 'Перетащите границу для изменения ширины (двойной клик для сброса на 320px)',
   },
   en: {
     appTitle: 'Application Title',
@@ -160,5 +161,6 @@ export const translations = {
     apiKey: 'Secret API Key (X-API-Key)',
     generateApiKey: 'Generate new key',
     apiKeyHelp: 'Pass the X-API-Key header or Authorization: Bearer <key> in curl and scripts.',
+    resizeWidthHelp: 'Drag border to resize (double click to reset to 320px)',
   },
 };
