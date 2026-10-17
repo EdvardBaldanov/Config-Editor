@@ -100,14 +100,7 @@ CONFIG_DATADIR=/opt/config-studio/data
 		}
 	}
 
-	// 4. Seed demo configuration files if directory is empty
-	entries, _ := os.ReadDir(configsDirDefault)
-	if len(entries) == 0 {
-		seedSampleFiles(configsDirDefault)
-		fmt.Printf("--> Seeded sample configuration files into %s\n", configsDirDefault)
-	}
-
-	// 5. Configure service based on init system
+	// 4. Configure service based on init system
 	if initSys == "systemd" {
 		unitContent := `[Unit]
 Description=Config Studio Web Editor

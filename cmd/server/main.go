@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -79,9 +78,6 @@ func main() {
 		log.Fatalf("Failed to initialize filesystem service: %v", err)
 	}
 
-	// Seed sample demo files if WORKDIR is empty
-	seedSampleFiles(*workdir)
-
 	// Prepare embedded Web FS
 	subFS, err := web.GetFS()
 	if err != nil {
@@ -134,95 +130,6 @@ func main() {
 		log.Printf("Server shutdown error: %v", err)
 	}
 	log.Println("Config Studio stopped gracefully.")
-}
-
-func seedSampleFiles(workdir string) {
-	sampleYAML := `version: '3.8'
-
-services:
-  web:
-    image: nginx:alpine
-    container_name: web_proxy
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      DEBUG: "true"
-      APP_ENV: production
-      LOG_LEVEL: info
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./html:/usr/share/nginx/html
-    networks:
-      - frontend
-      - backend
-
-  db:
-    image: postgres:15-alpine
-    container_name: postgres_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: app_db
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: secret_password
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    networks:
-      - backend
-
-networks:
-  frontend:
-    driver: bridge
-  backend:
-    driver: bridge
-
-volumes:
-  db_data:
-`
-
-	sampleJSON := `{
-  "name": "config-studio",
-  "version": "1.0.0",
-  "description": "Modern Linux configuration editor",
-  "server": {
-    "host": "0.0.0.0",
-    "port": 8080,
-    "ssl": false
-  },
-  "features": [
-    "ast-outline",
-    "monaco-editor",
-    "theme-customization",
-    "file-manager"
-  ],
-  "author": {
-    "name": "Admin",
-    "email": "admin@example.local"
-  }
-}
-`
-
-	sampleTOML := `[server]
-host = "127.0.0.1"
-port = 9000
-workers = 4
-
-[database]
-engine = "postgresql"
-name = "production"
-timeout = 30
-max_connections = 100
-
-[logging]
-level = "info"
-format = "json"
-enabled = true
-`
-
-	_ = os.WriteFile(filepath.Join(workdir, "docker-compose.yml"), []byte(sampleYAML), 0644)
-	_ = os.WriteFile(filepath.Join(workdir, "app-config.json"), []byte(sampleJSON), 0644)
-	_ = os.WriteFile(filepath.Join(workdir, "settings.toml"), []byte(sampleTOML), 0644)
 }
 
 func loadEnvFile(path string) {
