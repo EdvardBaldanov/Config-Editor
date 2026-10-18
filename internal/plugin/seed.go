@@ -256,57 +256,41 @@ func (m *Manager) seedWebDevKit() {
       const launchpad = document.createElement('div');
       launchpad.className = 'flex-1 flex flex-col items-center justify-center p-6 text-center overflow-auto';
       
-      launchpad.innerHTML = `
-        <div class="max-w-md p-6 rounded-2xl bg-base border border-base-border shadow-xl text-left">
-          <div class="flex items-center space-x-3 mb-4">
-            <span class="text-3xl">🌐</span>
-            <div>
-              <h3 class="text-base font-bold text-gray-100">Web DevKit готов к работе</h3>
-              <p class="text-xs text-gray-400">Предпросмотр HTML/PHP, сервер и автодополнение</p>
-            </div>
-          </div>
-          
-          <div class="p-3 mb-4 rounded-xl bg-base-surface border border-base-border text-xs text-gray-300">
-            <span class="text-gray-400">Текущий файл:</span> 
-            <span class="font-mono text-accent font-semibold">${file ? file.name : 'файл не открыт'}</span>
-            <div class="mt-1 text-[11px] text-gray-500">
-              ${file ? 'Файл не является веб-страницей. Вы можете быстро создать веб-шаблон ниже:' : 'Откройте или создайте HTML/PHP файл для предпросмотра.'}
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2.5 mb-5">
-            <button id="devkit-create-html" class="p-3 rounded-xl bg-accent/15 border border-accent/30 hover:bg-accent/25 text-accent font-semibold text-xs flex flex-col items-center text-center transition cursor-pointer">
-              <span class="text-lg mb-1">📄</span>
-              <span>Создать index.html</span>
-              <span class="text-[10px] text-gray-400 font-normal mt-0.5">Шаблон HTML5 + Tailwind</span>
-            </button>
-            <button id="devkit-create-php" class="p-3 rounded-xl bg-purple-500/15 border border-purple-500/30 hover:bg-purple-500/25 text-purple-300 font-semibold text-xs flex flex-col items-center text-center transition cursor-pointer">
-              <span class="text-lg mb-1">🐘</span>
-              <span>Создать index.php</span>
-              <span class="text-[10px] text-gray-400 font-normal mt-0.5">PHP скрипт с сервером</span>
-            </button>
-          </div>
-
-          <div class="space-y-1.5 text-[11px] text-gray-400 border-t border-base-border pt-3">
-            <div class="flex items-center space-x-2">
-              <span class="text-emerald-400">✓</span>
-              <span>Monaco автодополнение тегов HTML5 и PHP функций</span>
-            </div>
-            <div class="flex items-center space-x-2">
-              <span class="text-emerald-400">✓</span>
-              <span>Встроенный веб-сервер на порту 8085</span>
-            </div>
-            <div class="flex items-center space-x-2">
-              <span class="text-emerald-400">✓</span>
-              <span>Адаптивные экраны: Full / Desktop / Tablet / Mobile</span>
-            </div>
-            <div class="flex items-center space-x-2">
-              <span class="text-emerald-400">✓</span>
-              <span>Автообновление предпросмотра при сохранении (Ctrl+S)</span>
-            </div>
-          </div>
-        </div>
-      `;
+      launchpad.innerHTML = 
+        '<div class="max-w-md p-6 rounded-2xl bg-base border border-base-border shadow-xl text-left">' +
+          '<div class="flex items-center space-x-3 mb-4">' +
+            '<span class="text-3xl">🌐</span>' +
+            '<div>' +
+              '<h3 class="text-base font-bold text-gray-100">Web DevKit готов к работе</h3>' +
+              '<p class="text-xs text-gray-400">Предпросмотр HTML/PHP, сервер и автодополнение</p>' +
+            '</div>' +
+          '</div>' +
+          '<div class="p-3 mb-4 rounded-xl bg-base-surface border border-base-border text-xs text-gray-300">' +
+            '<span class="text-gray-400">Текущий файл:</span> ' +
+            '<span class="font-mono text-accent font-semibold">' + (file ? file.name : 'файл не открыт') + '</span>' +
+            '<div class="mt-1 text-[11px] text-gray-500">' +
+              (file ? 'Файл не является веб-страницей. Вы можете быстро создать веб-шаблон ниже:' : 'Откройте или создайте HTML/PHP файл для предпросмотра.') +
+            '</div>' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-2.5 mb-5">' +
+            '<button id="devkit-create-html" class="p-3 rounded-xl bg-accent/15 border border-accent/30 hover:bg-accent/25 text-accent font-semibold text-xs flex flex-col items-center text-center transition cursor-pointer">' +
+              '<span class="text-lg mb-1">📄</span>' +
+              '<span>Создать index.html</span>' +
+              '<span class="text-[10px] text-gray-400 font-normal mt-0.5">Шаблон HTML5 + Tailwind</span>' +
+            '</button>' +
+            '<button id="devkit-create-php" class="p-3 rounded-xl bg-purple-500/15 border border-purple-500/30 hover:bg-purple-500/25 text-purple-300 font-semibold text-xs flex flex-col items-center text-center transition cursor-pointer">' +
+              '<span class="text-lg mb-1">🐘</span>' +
+              '<span>Создать index.php</span>' +
+              '<span class="text-[10px] text-gray-400 font-normal mt-0.5">PHP скрипт с сервером</span>' +
+            '</button>' +
+          '</div>' +
+          '<div class="space-y-1.5 text-[11px] text-gray-400 border-t border-base-border pt-3">' +
+            '<div class="flex items-center space-x-2"><span class="text-emerald-400">✓</span><span>Monaco автодополнение тегов HTML5 и PHP функций</span></div>' +
+            '<div class="flex items-center space-x-2"><span class="text-emerald-400">✓</span><span>Встроенный веб-сервер на порту 8085</span></div>' +
+            '<div class="flex items-center space-x-2"><span class="text-emerald-400">✓</span><span>Адаптивные экраны: Full / Desktop / Tablet / Mobile</span></div>' +
+            '<div class="flex items-center space-x-2"><span class="text-emerald-400">✓</span><span>Автообновление предпросмотра при сохранении (Ctrl+S)</span></div>' +
+          '</div>' +
+        '</div>';
 
       wrapper.appendChild(launchpad);
       container.appendChild(wrapper);
@@ -354,20 +338,7 @@ func (m *Manager) seedWebDevKit() {
       iframe.src = 'http://' + window.location.hostname + ':' + serverPort + '/' + filename;
     } else {
       if (isPhp) {
-        iframe.srcdoc = `
-          <!DOCTYPE html>
-          <html>
-          <head><meta charset="utf-8"><script src="https://cdn.tailwindcss.com"></script></head>
-          <body class="bg-gray-900 text-white flex flex-col items-center justify-center h-screen p-6 text-center font-sans">
-            <div class="max-w-sm p-6 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl">
-              <div class="text-4xl mb-3">🐘</div>
-              <h3 class="text-base font-bold mb-2">Требуется запуск сервера</h3>
-              <p class="text-xs text-gray-400 mb-4">Для выполнения PHP скриптов запустите локальный веб-сервер кнопкой в верхней панели.</p>
-              <div class="text-[11px] font-mono text-emerald-400 bg-gray-900 p-2 rounded">php -S 0.0.0.0:8085</div>
-            </div>
-          </body>
-          </html>
-        `;
+        iframe.srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8"><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-gray-900 text-white flex flex-col items-center justify-center h-screen p-6 text-center font-sans"><div class="max-w-sm p-6 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl"><div class="text-4xl mb-3">🐘</div><h3 class="text-base font-bold mb-2">Требуется запуск сервера</h3><p class="text-xs text-gray-400 mb-4">Для выполнения PHP скриптов запустите локальный веб-сервер кнопкой в верхней панели.</p><div class="text-[11px] font-mono text-emerald-400 bg-gray-900 p-2 rounded">php -S 0.0.0.0:8085</div></div></body></html>';
       } else {
         // Direct HTML preview
         iframe.srcdoc = file.content;
