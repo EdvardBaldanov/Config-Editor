@@ -6,6 +6,7 @@ import {
   SplitPanelDef,
   HeaderItemDef,
   ProcessInfo,
+  OutlineNode,
 } from '../types';
 
 export interface BottomPanelDef {
