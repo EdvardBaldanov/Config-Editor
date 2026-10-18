@@ -1,14 +1,14 @@
-# Config Editor 🚀
+# Config Studio 🚀
 
-[![Build & Release](https://github.com/EdvardBaldanov/Config-Editor/actions/workflows/build.yml/badge.svg)](https://github.com/EdvardBaldanov/Config-Editor/actions/workflows/build.yml)
-[![GitHub Release](https://img.shields.io/github/v/release/EdvardBaldanov/Config-Editor?color=blue)](https://github.com/EdvardBaldanov/Config-Editor/releases)
+[![Build & Release](https://github.com/EdvardBaldanov/config-studio/actions/workflows/build.yml/badge.svg)](https://github.com/EdvardBaldanov/config-studio/actions/workflows/build.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/EdvardBaldanov/config-studio?color=blue)](https://github.com/EdvardBaldanov/config-studio/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> [🇷🇺 Описание на русском](#-config-editor-на-русском) | [🇬🇧 English version below](#-config-editor-english)
+> [🇷🇺 Описание на русском](#-config-studio-на-русском) | [🇬🇧 English version below](#-config-studio-english)
 
 ---
 
-## 🇷🇺 Config Editor (На русском)
+## 🇷🇺 Config Studio (На русском)
 
 Современный, легкий веб-редактор конфигурационных файлов со встроенным ядром **Monaco Editor** (как в VS Code), интерактивной картой структуры документа (**AST Map**), динамическим изменением ширины панелей и гибкой кастомизацией тем и брендинга.
 
@@ -77,30 +77,30 @@
 ### 🚀 Быстрый запуск
 
 #### Скачивание готового бинарника
-Скачайте бинарник для вашей системы со страницы **[GitHub Releases](https://github.com/EdvardBaldanov/Config-Editor/releases)**:
-- **Windows (amd64)**: `config-editor-windows-amd64.exe`
-- **Linux (x86_64 / amd64)**: `config-editor-linux-amd64`
-- **Linux (ARM64)**: `config-editor-linux-arm64`
+Скачайте бинарник для вашей системы со страницы **[GitHub Releases](https://github.com/EdvardBaldanov/config-studio/releases)**:
+- **Windows (amd64)**: `config-studio-windows-amd64.exe`
+- **Linux (x86_64 / amd64)**: `config-studio-linux-amd64`
+- **Linux (ARM64)**: `config-studio-linux-arm64`
 
 #### Запуск на Linux:
 ```bash
-chmod +x config-editor-linux-amd64
-./config-editor-linux-amd64 --port 8080 --workdir /etc/yaml-configs
+chmod +x config-studio-linux-amd64
+./config-studio-linux-amd64 --port 8080 --workdir /etc/yaml-configs
 ```
 
 #### Автоустановка в качестве службы (Linux systemd / OpenRC):
 Бинарник умеет сам устанавливать и настраивать системный демон:
 ```bash
 # Установка сервиса (автоматически определит systemd или OpenRC):
-sudo ./config-editor-linux-amd64 -install
+sudo ./config-studio-linux-amd64 -install
 
 # Удаление сервиса:
-sudo ./config-editor-linux-amd64 -uninstall
+sudo ./config-studio-linux-amd64 -uninstall
 ```
 
 #### Запуск на Windows:
 ```powershell
-.\config-editor-windows-amd64.exe -port 8080 -workdir C:\configs
+.\config-studio-windows-amd64.exe -port 8080 -workdir C:\configs
 ```
 После запуска откройте в браузере: `http://localhost:8080` (или `http://<IP-сервера>:8080`).
 
@@ -114,8 +114,8 @@ sudo ./config-editor-linux-amd64 -uninstall
 
 ```bash
 # 1. Клонирование репозитория
-git clone https://github.com/EdvardBaldanov/Config-Editor.git
-cd Config-Editor
+git clone https://github.com/EdvardBaldanov/config-studio.git
+cd config-studio
 
 # 2. Сборка веб-интерфейса
 cd web
@@ -125,10 +125,10 @@ cd ..
 
 # 3. Компиляция бинарника
 # Для Linux:
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/config-editor ./cmd/server
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/config-studio ./cmd/server
 
 # Для Windows:
-go build -ldflags="-s -w" -o bin/config-editor.exe ./cmd/server
+go build -ldflags="-s -w" -o bin/config-studio.exe ./cmd/server
 ```
 
 ---
@@ -149,7 +149,7 @@ go build -ldflags="-s -w" -o bin/config-editor.exe ./cmd/server
 ---
 
 <a name="english-version"></a>
-## 🇬🇧 Config Editor (English)
+## 🇬🇧 Config Studio (English)
 
 Modern, lightweight web-based configuration editor powered by **Monaco Editor** (VS Code core), interactive document structure map (**AST Map**), draggable resizable sidebars, and customizable branding.
 
@@ -216,29 +216,29 @@ Shipped as a **single standalone portable binary** for **Linux** and **Windows**
 ### 🚀 Quick Start
 
 #### Download Pre-compiled Binary
-Grab the latest release from **[GitHub Releases](https://github.com/EdvardBaldanov/Config-Editor/releases)**:
-- **Windows (amd64)**: `config-editor-windows-amd64.exe`
-- **Linux (x86_64 / amd64)**: `config-editor-linux-amd64`
-- **Linux (ARM64)**: `config-editor-linux-arm64`
+Grab the latest release from **[GitHub Releases](https://github.com/EdvardBaldanov/config-studio/releases)**:
+- **Windows (amd64)**: `config-studio-windows-amd64.exe`
+- **Linux (x86_64 / amd64)**: `config-studio-linux-amd64`
+- **Linux (ARM64)**: `config-studio-linux-arm64`
 
 #### Running on Linux:
 ```bash
-chmod +x config-editor-linux-amd64
-./config-editor-linux-amd64 --port 8080 --workdir /etc/yaml-configs
+chmod +x config-studio-linux-amd64
+./config-studio-linux-amd64 --port 8080 --workdir /etc/yaml-configs
 ```
 
 #### Self-Installing as a Service (Linux systemd / OpenRC):
 ```bash
 # Auto-detects systemd or OpenRC and registers system daemon:
-sudo ./config-editor-linux-amd64 -install
+sudo ./config-studio-linux-amd64 -install
 
 # To uninstall service:
-sudo ./config-editor-linux-amd64 -uninstall
+sudo ./config-studio-linux-amd64 -uninstall
 ```
 
 #### Running on Windows:
 ```powershell
-.\config-editor-windows-amd64.exe -port 8080 -workdir C:\configs
+.\config-studio-windows-amd64.exe -port 8080 -workdir C:\configs
 ```
 Open your browser at `http://localhost:8080`.
 
@@ -252,8 +252,8 @@ Open your browser at `http://localhost:8080`.
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/EdvardBaldanov/Config-Editor.git
-cd Config-Editor
+git clone https://github.com/EdvardBaldanov/config-studio.git
+cd config-studio
 
 # 2. Build Web Frontend
 cd web
@@ -263,10 +263,10 @@ cd ..
 
 # 3. Build Go Binary
 # For Linux:
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/config-editor ./cmd/server
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/config-studio ./cmd/server
 
 # For Windows:
-go build -ldflags="-s -w" -o bin/config-editor.exe ./cmd/server
+go build -ldflags="-s -w" -o bin/config-studio.exe ./cmd/server
 ```
 
 ---
