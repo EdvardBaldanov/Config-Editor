@@ -94,7 +94,7 @@ export const App: React.FC = () => {
       createFile: async (path: string, content: string = '') => {
         await api.createItem(path, false);
         if (content) {
-          await api.saveFile(path, content, '');
+          await api.saveFile(path, content, false);
         }
         await loadDir(currentDirRef.current);
         await openFile(path);
