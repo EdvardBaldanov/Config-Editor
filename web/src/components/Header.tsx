@@ -15,6 +15,7 @@ import {
   X,
   CornerDownLeft,
   Loader2,
+  Package,
 } from 'lucide-react';
 import { Settings, OpenFile, FileItem, HeaderItemDef } from '../types';
 import { translations, Language } from '../utils/i18n';
@@ -27,9 +28,11 @@ interface HeaderProps {
   currentDir: string;
   isSaving: boolean;
   pluginHeaderItems?: HeaderItemDef[];
+  activePluginsCount?: number;
   onSave: () => void;
   onDownload: () => void;
   onOpenSettings: () => void;
+  onOpenPlugins?: () => void;
   onOpenProperties: () => void;
   onToggleTheme: () => void;
   onChangeLanguage: (lang: Language) => void;
@@ -44,9 +47,11 @@ export const Header: React.FC<HeaderProps> = ({
   currentDir,
   isSaving,
   pluginHeaderItems = [],
+  activePluginsCount = 0,
   onSave,
   onDownload,
   onOpenSettings,
+  onOpenPlugins,
   onOpenProperties,
   onToggleTheme,
   onChangeLanguage,
@@ -443,6 +448,23 @@ export const Header: React.FC<HeaderProps> = ({
             <Moon className="w-4 h-4" />
           )}
         </button>
+
+        {/* Plugins quick toggle button */}
+        {onOpenPlugins && (
+          <button
+            onClick={onOpenPlugins}
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-base-border transition-colors cursor-pointer"
+            title={`Плагины (${activePluginsCount} активных)`}
+          >
+            <Package className="w-3.5 h-3.5 text-accent" />
+            <span className="hidden md:inline font-medium">Плагины</span>
+            {activePluginsCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-accent/20 text-accent border border-accent/30">
+                {activePluginsCount}
+              </span>
+            )}
+          </button>
+        )}
 
         {/* Settings button */}
         <button

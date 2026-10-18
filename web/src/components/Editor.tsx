@@ -1,9 +1,10 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import MonacoEditor, { OnMount } from '@monaco-editor/react';
 import { OpenFile, Settings, OutlineNode, ToolbarButtonDef } from '../types';
-import { X, FileCode, Hash, Play } from 'lucide-react';
+import { X, FileCode, Hash, Play, Globe, Server, Terminal, Sparkles } from 'lucide-react';
 import { translations } from '../utils/i18n';
 import { getLuminance } from '../utils/color';
+import { pluginManager } from '../services/pluginLoader';
 
 interface EditorProps {
   tabs: OpenFile[];
@@ -97,6 +98,7 @@ export const Editor: React.FC<EditorProps> = ({
   const handleEditorMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoInstanceRef.current = monaco;
+    pluginManager.setMonacoInstances(monaco, editor);
 
     defineCustomTheme(monaco);
     monaco.editor.setTheme(isLight ? 'custom-light' : 'custom-dark');
@@ -233,17 +235,28 @@ export const Editor: React.FC<EditorProps> = ({
         {/* Plugin Action Buttons (e.g. Live Preview) */}
         {visiblePluginButtons.length > 0 && (
           <div className="flex items-center space-x-1.5 pl-2 shrink-0">
-            {visiblePluginButtons.map((btn) => (
-              <button
-                key={btn.id}
-                onClick={btn.onClick}
-                title={btn.title || btn.label}
-                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-accent text-gray-900 hover:opacity-90 shadow-sm transition flex items-center space-x-1.5 cursor-pointer"
-              >
-                <Play size={11} fill="currentColor" />
-                <span>{btn.label}</span>
-              </button>
-            ))}
+            {visiblePluginButtons.map((btn) => {
+              const renderIcon = () => {
+                if (btn.icon === 'globe') return <Globe size={12} />;
+                if (btn.icon === 'server') return <Server size={12} />;
+                if (btn.icon === 'terminal') return <Terminal size={12} />;
+                if (btn.icon === 'sparkles') return <Sparkles size={12} />;
+                if (btn.icon && btn.icon.length <= 4) return <span className="text-xs">{btn.icon}</span>;
+                return <Play size={11} fill="currentColor" />;
+              };
+
+              return (
+                <button
+                  key={btn.id}
+                  onClick={btn.onClick}
+                  title={btn.title || btn.label}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-accent text-gray-900 hover:opacity-90 shadow-sm transition flex items-center space-x-1.5 cursor-pointer"
+                >
+                  {renderIcon()}
+                  <span>{btn.label}</span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

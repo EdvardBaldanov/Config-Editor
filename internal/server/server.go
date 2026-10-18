@@ -182,7 +182,8 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		if r.URL.Path == "/api/auth/status" ||
 			r.URL.Path == "/api/auth/login" ||
 			r.URL.Path == "/api/branding/icon" ||
-			r.URL.Path == "/api/health" {
+			r.URL.Path == "/api/health" ||
+			(strings.HasPrefix(r.URL.Path, "/api/plugins/") && strings.Contains(r.URL.Path, "/files/")) {
 			next.ServeHTTP(w, r)
 			return
 		}

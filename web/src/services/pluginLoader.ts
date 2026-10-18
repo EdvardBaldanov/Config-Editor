@@ -8,12 +8,22 @@ import {
   ProcessInfo,
 } from '../types';
 
+export interface BottomPanelDef {
+  id: string;
+  pluginId: string;
+  title: string;
+  open: boolean;
+  render: (container: HTMLElement) => void;
+}
+
 export interface PluginSystemState {
   plugins: PluginItem[];
   toolbarButtons: ToolbarButtonDef[];
   splitPanels: SplitPanelDef[];
+  bottomPanels: BottomPanelDef[];
   headerItems: HeaderItemDef[];
   activeSplitPanelId: string | null;
+  activeBottomPanelId: string | null;
 }
 
 type Listener = (state: PluginSystemState) => void;
@@ -22,8 +32,10 @@ class PluginLoader {
   private plugins: PluginItem[] = [];
   private toolbarButtons: ToolbarButtonDef[] = [];
   private splitPanels: SplitPanelDef[] = [];
+  private bottomPanels: BottomPanelDef[] = [];
   private headerItems: HeaderItemDef[] = [];
   private activeSplitPanelId: string | null = null;
+  private activeBottomPanelId: string | null = null;
 
   private onFileOpenCallbacks: Array<(file: OpenFile) => void> = [];
   private onFileSaveCallbacks: Array<(file: OpenFile) => void> = [];
@@ -34,18 +46,37 @@ class PluginLoader {
   private notificationHandler: (msg: string, type?: 'info' | 'success' | 'error') => void = (m) => alert(m);
   private confirmHandler: (command: string) => Promise<boolean> = async () => true;
 
-  init(options: {
-    getActiveFile: () => OpenFile | null;
-    setActiveContent: (content: string) => void;
-    showNotification: (msg: string, type?: 'info' | 'success' | 'error') => void;
-    confirmCommand: (command: string) => Promise<boolean>;
-  }) {
-    this.activeFileGetter = options.getActiveFile;
-    this.activeContentSetter = options.setActiveContent;
-    this.notificationHandler = options.showNotification;
-    this.confirmHandler = options.confirmCommand;
+  private monacoInstance: any = null;
+  private editorInstance: any = null;
+  private loadedPluginIds: Set<string> = new Set();
+  private queuedCompletionProviders: Array<{ language: string; provider: any }> = [];
 
-    // Attach to window.ConfigStudio
+  private openFileHandler: (path: string) => Promise<void> = async () => {};
+  private createFileHandler: (path: string, content?: string) => Promise<void> = async () => {};
+  private refreshFilesHandler: () => Promise<void> = async () => {};
+
+  constructor() {
+    this.setupGlobalAPI();
+  }
+
+  setMonacoInstances(monaco: any, editor: any) {
+    this.monacoInstance = monaco;
+    this.editorInstance = editor;
+
+    if (this.monacoInstance && this.queuedCompletionProviders.length > 0) {
+      for (const item of this.queuedCompletionProviders) {
+        try {
+          this.monacoInstance.languages.registerCompletionItemProvider(item.language, item.provider);
+          console.log(`[PluginLoader] Registered completion provider for ${item.language}`);
+        } catch (e) {
+          console.error(`[PluginLoader] Error registering completion provider for ${item.language}:`, e);
+        }
+      }
+      this.queuedCompletionProviders = [];
+    }
+  }
+
+  private setupGlobalAPI() {
     (window as any).ConfigStudio = {
       registerToolbarButton: (btn: ToolbarButtonDef) => {
         this.toolbarButtons = this.toolbarButtons.filter((b) => b.id !== btn.id);
@@ -83,6 +114,36 @@ class PluginLoader {
         this.notify();
       },
 
+      registerBottomPanel: (panel: BottomPanelDef) => {
+        this.bottomPanels = this.bottomPanels.filter((p) => p.id !== panel.id);
+        this.bottomPanels.push(panel);
+        this.notify();
+      },
+
+      toggleBottomPanel: (panelDef: Partial<BottomPanelDef> & { id: string }) => {
+        let existing = this.bottomPanels.find((p) => p.id === panelDef.id);
+        if (!existing && panelDef.render) {
+          existing = {
+            id: panelDef.id,
+            pluginId: panelDef.pluginId || 'unknown',
+            title: panelDef.title || 'Bottom Panel',
+            open: true,
+            render: panelDef.render,
+          };
+          this.bottomPanels.push(existing);
+        } else if (existing) {
+          if (panelDef.open !== undefined) {
+            existing.open = panelDef.open;
+          } else {
+            existing.open = !existing.open;
+          }
+          if (panelDef.render) existing.render = panelDef.render;
+        }
+
+        this.activeBottomPanelId = existing && existing.open ? existing.id : null;
+        this.notify();
+      },
+
       registerHeaderItem: (item: HeaderItemDef) => {
         this.headerItems = this.headerItems.filter((h) => h.id !== item.id);
         this.headerItems.push(item);
@@ -101,6 +162,26 @@ class PluginLoader {
       getActiveContent: () => this.activeFileGetter()?.content || '',
       setActiveContent: (content: string) => this.activeContentSetter(content),
 
+      getMonaco: () => this.monacoInstance,
+      getEditor: () => this.editorInstance,
+      registerCompletionProvider: (language: string, provider: any) => {
+        if (this.monacoInstance) {
+          return this.monacoInstance.languages.registerCompletionItemProvider(language, provider);
+        }
+        this.queuedCompletionProviders.push({ language, provider });
+        return null;
+      },
+
+      openFile: async (path: string) => {
+        await this.openFileHandler(path);
+      },
+      createFile: async (path: string, content?: string) => {
+        await this.createFileHandler(path, content);
+      },
+      refreshFiles: async () => {
+        await this.refreshFilesHandler();
+      },
+
       showNotification: (msg: string, type?: 'info' | 'success' | 'error') => {
         this.notificationHandler(msg, type);
       },
@@ -115,7 +196,6 @@ class PluginLoader {
         args?: string[];
         cwd?: string;
       }) => {
-        let confirmed = false;
         try {
           const res = await api.execPluginCommand(
             req.pluginId,
@@ -129,7 +209,6 @@ class PluginLoader {
               `${req.command} ${(req.args || []).join(' ')}`
             );
             if (!ok) throw new Error('Command execution denied by user');
-            confirmed = true;
             return await api.execPluginCommand(
               req.pluginId,
               req.command,
@@ -185,12 +264,30 @@ class PluginLoader {
     };
   }
 
+  init(options: {
+    getActiveFile: () => OpenFile | null;
+    setActiveContent: (content: string) => void;
+    showNotification: (msg: string, type?: 'info' | 'success' | 'error') => void;
+    confirmCommand: (command: string) => Promise<boolean>;
+    openFile?: (path: string) => Promise<void>;
+    createFile?: (path: string, content?: string) => Promise<void>;
+    refreshFiles?: () => Promise<void>;
+  }) {
+    this.activeFileGetter = options.getActiveFile;
+    this.activeContentSetter = options.setActiveContent;
+    this.notificationHandler = options.showNotification;
+    this.confirmHandler = options.confirmCommand;
+    if (options.openFile) this.openFileHandler = options.openFile;
+    if (options.createFile) this.createFileHandler = options.createFile;
+    if (options.refreshFiles) this.refreshFilesHandler = options.refreshFiles;
+  }
+
   async loadPlugins(): Promise<PluginItem[]> {
     try {
       this.plugins = await api.getPlugins();
       for (const p of this.plugins) {
         if (!p.enabled) continue;
-        this.injectPluginAssets(p);
+        await this.injectPluginAssets(p);
       }
       this.notify();
       return this.plugins;
@@ -200,28 +297,47 @@ class PluginLoader {
     }
   }
 
-  private injectPluginAssets(p: PluginItem) {
-    // Inject CSS if defined
+  private async injectPluginAssets(p: PluginItem) {
+    // 1. Inject CSS if defined
     if (p.css) {
       const cssId = `plugin-css-${p.id}`;
       if (!document.getElementById(cssId)) {
-        const link = document.createElement('link');
-        link.id = cssId;
-        link.rel = 'stylesheet';
-        link.href = `/api/plugins/${encodeURIComponent(p.id)}/files/${p.css}?t=${Date.now()}`;
-        document.head.appendChild(link);
+        try {
+          const res = await fetch(`/api/plugins/${encodeURIComponent(p.id)}/files/${p.css}?t=${Date.now()}`, {
+            headers: { 'X-ConfigStudio-Web': '1' },
+          });
+          if (res.ok) {
+            const cssText = await res.text();
+            const style = document.createElement('style');
+            style.id = cssId;
+            style.textContent = cssText;
+            document.head.appendChild(style);
+          }
+        } catch (e) {
+          console.warn(`[PluginLoader] Failed to load CSS for ${p.id}:`, e);
+        }
       }
     }
 
-    // Inject Script Entrypoint
-    if (p.entry) {
-      const scriptId = `plugin-script-${p.id}`;
-      if (!document.getElementById(scriptId)) {
-        const script = document.createElement('script');
-        script.id = scriptId;
-        script.type = 'text/javascript';
-        script.src = `/api/plugins/${encodeURIComponent(p.id)}/files/${p.entry}?t=${Date.now()}`;
-        document.body.appendChild(script);
+    // 2. Load and execute Script Entrypoint
+    if (p.entry && !this.loadedPluginIds.has(p.id)) {
+      try {
+        const res = await fetch(`/api/plugins/${encodeURIComponent(p.id)}/files/${p.entry}?t=${Date.now()}`, {
+          headers: { 'X-ConfigStudio-Web': '1' },
+        });
+        if (res.ok) {
+          const code = await res.text();
+          // Execute script with window.ConfigStudio in scope
+          const runner = new Function('ConfigStudio', 'window', code);
+          runner((window as any).ConfigStudio, window);
+          this.loadedPluginIds.add(p.id);
+          console.log(`[PluginLoader] Successfully initialized plugin: ${p.name} (${p.id})`);
+          this.notify();
+        } else {
+          console.error(`[PluginLoader] Failed to fetch script for ${p.id}: HTTP ${res.status}`);
+        }
+      } catch (err) {
+        console.error(`[PluginLoader] Error executing plugin ${p.id}:`, err);
       }
     }
   }
@@ -229,14 +345,18 @@ class PluginLoader {
   removePluginAssets(id: string) {
     const css = document.getElementById(`plugin-css-${id}`);
     if (css) css.remove();
-    const script = document.getElementById(`plugin-script-${id}`);
-    if (script) script.remove();
 
+    this.loadedPluginIds.delete(id);
     this.toolbarButtons = this.toolbarButtons.filter((b) => b.pluginId !== id);
     this.splitPanels = this.splitPanels.filter((p) => p.pluginId !== id);
+    this.bottomPanels = this.bottomPanels.filter((p) => p.pluginId !== id);
     this.headerItems = this.headerItems.filter((h) => h.pluginId !== id);
+
     if (this.activeSplitPanelId && this.splitPanels.every((p) => p.id !== this.activeSplitPanelId)) {
       this.activeSplitPanelId = null;
+    }
+    if (this.activeBottomPanelId && this.bottomPanels.every((p) => p.id !== this.activeBottomPanelId)) {
+      this.activeBottomPanelId = null;
     }
     this.notify();
   }
@@ -274,8 +394,10 @@ class PluginLoader {
       plugins: this.plugins,
       toolbarButtons: this.toolbarButtons,
       splitPanels: this.splitPanels,
+      bottomPanels: this.bottomPanels,
       headerItems: this.headerItems,
       activeSplitPanelId: this.activeSplitPanelId,
+      activeBottomPanelId: this.activeBottomPanelId,
     };
   }
 
@@ -286,6 +408,17 @@ class PluginLoader {
     }
     if (this.activeSplitPanelId === panelId) {
       this.activeSplitPanelId = null;
+    }
+    this.notify();
+  }
+
+  closeBottomPanel(panelId: string) {
+    const panel = this.bottomPanels.find((p) => p.id === panelId);
+    if (panel) {
+      panel.open = false;
+    }
+    if (this.activeBottomPanelId === panelId) {
+      this.activeBottomPanelId = null;
     }
     this.notify();
   }

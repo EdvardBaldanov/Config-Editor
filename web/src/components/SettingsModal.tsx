@@ -36,6 +36,7 @@ interface SettingsModalProps {
   settings: Settings;
   onSaveSettings: (newSettings: Partial<Settings>) => Promise<void>;
   onUploadIcon: (file: File) => Promise<void>;
+  initialTab?: SettingsTab;
 }
 
 const PRESET_BASE_COLORS = [
@@ -64,8 +65,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
   onSaveSettings,
   onUploadIcon,
+  initialTab = 'general',
 }) => {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
+
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   // General Settings
   const [title, setTitle] = useState(settings.appTitle);

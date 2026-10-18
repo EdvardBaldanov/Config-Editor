@@ -7,6 +7,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { FilePropertiesModal } from './components/FilePropertiesModal';
 import { LoginScreen } from './components/LoginScreen';
 import { PluginSplitPanel } from './components/PluginSplitPanel';
+import { PluginBottomPanel } from './components/PluginBottomPanel';
 import { CommandConfirmModal } from './components/CommandConfirmModal';
 import { api } from './services/api';
 import { pluginManager, PluginSystemState } from './services/pluginLoader';
@@ -49,6 +50,7 @@ export const App: React.FC = () => {
 
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [settingsTab, setSettingsTab] = useState<'general' | 'security' | 'plugins'>('general');
   const [isPropertiesOpen, setIsPropertiesOpen] = useState<boolean>(false);
 
   const editorRef = useRef<any>(null);
@@ -59,6 +61,11 @@ export const App: React.FC = () => {
     [tabs, activeTabPath]
   );
 
+  const currentFileRef = useRef(currentFile);
+  currentFileRef.current = currentFile;
+  const currentDirRef = useRef(currentDir);
+  currentDirRef.current = currentDir;
+
   // Check initial authentication and load settings
   useEffect(() => {
     checkAuthAndInit();
@@ -67,8 +74,12 @@ export const App: React.FC = () => {
   // Initialize Plugin System
   useEffect(() => {
     pluginManager.init({
-      getActiveFile: () => currentFile,
-      setActiveContent: handleContentChange,
+      getActiveFile: () => currentFileRef.current,
+      setActiveContent: (content: string) => {
+        if (currentFileRef.current) {
+          handleContentChange(content);
+        }
+      },
       showNotification: (msg, type) => {
         console.log(`[Plugin Notification ${type}]:`, msg);
       },
@@ -76,6 +87,20 @@ export const App: React.FC = () => {
         return new Promise<boolean>((resolve) => {
           setPendingConfirm({ command, resolve });
         });
+      },
+      openFile: async (path: string) => {
+        await openFile(path);
+      },
+      createFile: async (path: string, content: string = '') => {
+        await api.createItem(path, false);
+        if (content) {
+          await api.saveFile(path, content, '');
+        }
+        await loadDir(currentDirRef.current);
+        await openFile(path);
+      },
+      refreshFiles: async () => {
+        await loadDir(currentDirRef.current);
       },
     });
 
@@ -88,7 +113,7 @@ export const App: React.FC = () => {
     return () => {
       unsubscribe();
     };
-  }, [currentFile]);
+  }, []);
 
   // Dispatch onFileOpen whenever active tab changes
   useEffect(() => {
@@ -440,6 +465,9 @@ export const App: React.FC = () => {
   const activeSplitPanel = pluginState.splitPanels.find(
     (p) => p.id === pluginState.activeSplitPanelId && p.open
   );
+  const activeBottomPanel = pluginState.bottomPanels?.find(
+    (p) => p.id === pluginState.activeBottomPanelId && p.open
+  );
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-base text-gray-900 dark:text-gray-100 select-none">
@@ -450,9 +478,17 @@ export const App: React.FC = () => {
         currentDir={currentDir}
         isSaving={isSaving}
         pluginHeaderItems={pluginState.headerItems}
+        activePluginsCount={pluginState.plugins.filter((p) => p.enabled).length}
         onSave={handleSaveFile}
         onDownload={handleDownload}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={() => {
+          setSettingsTab('general');
+          setIsSettingsOpen(true);
+        }}
+        onOpenPlugins={() => {
+          setSettingsTab('plugins');
+          setIsSettingsOpen(true);
+        }}
         onOpenProperties={() => setIsPropertiesOpen(true)}
         onToggleTheme={handleToggleTheme}
         onChangeLanguage={handleChangeLanguage}
@@ -478,20 +514,29 @@ export const App: React.FC = () => {
           onUploadFile={handleUploadFile}
         />
 
-        {/* Center: Monaco Editor with multi-tabs & full-width tag bar */}
-        <Editor
-          tabs={tabs}
-          activeFilePath={activeTabPath}
-          settings={settings}
-          outline={outline}
-          pluginButtons={pluginState.toolbarButtons}
-          onSelectTab={setActiveTabPath}
-          onCloseTab={handleCloseTab}
-          onChangeContent={handleContentChange}
-          onSave={handleSaveFile}
-          onSelectLine={handleJumpToLine}
-          editorRef={editorRef}
-        />
+        {/* Center: Monaco Editor with multi-tabs & full-width tag bar & bottom panel */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          <Editor
+            tabs={tabs}
+            activeFilePath={activeTabPath}
+            settings={settings}
+            outline={outline}
+            pluginButtons={pluginState.toolbarButtons}
+            onSelectTab={setActiveTabPath}
+            onCloseTab={handleCloseTab}
+            onChangeContent={handleContentChange}
+            onSave={handleSaveFile}
+            onSelectLine={handleJumpToLine}
+            editorRef={editorRef}
+          />
+
+          {activeBottomPanel && (
+            <PluginBottomPanel
+              panel={activeBottomPanel}
+              onClose={() => pluginManager.closeBottomPanel(activeBottomPanel.id)}
+            />
+          )}
+        </div>
 
         {/* Optional Plugin Split Panel (e.g. Web DevKit Live Preview) */}
         {activeSplitPanel && (
@@ -517,6 +562,7 @@ export const App: React.FC = () => {
         settings={settings}
         onSaveSettings={handleSaveSettings}
         onUploadIcon={handleUploadIcon}
+        initialTab={settingsTab}
       />
 
       {/* File Properties & History Modal */}
