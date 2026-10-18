@@ -150,17 +150,44 @@
 ### 2.9 ⚡ Плагин: Быстрое пакетное развертывание агентов (`config-studio-quick-agent`)
 Массовая установка и привязка агентов к парку серверов в 1 клик.
 - **Зависимости**: требует установленные и активные плагины `config-studio-ssh` и `config-studio-remote-agent`.
-- **Табличный ввод серверов (Server Provisioning Matrix)**:
-  - Интерактивная таблица в UI (с поддержкой импорта из CSV / YAML / JSON):
-    `Host/IP | Port | User | Auth Type (Key / Password) | Secret / Key Path | Target Tags`
+- **Конфигурация серверов: Строго YAML или JSON**:
+  - Полный отказ от устаревших форматов вроде CSV в пользу нативных, понятных человеку форматов.
+  - ⚓ **Использование якорей YAML (Anchors & Aliases — DRY принцип)**:
+    - Блок аутентификации (SSH-ключ или пароль, порт, дефолтный пользователь) описывается **ровно один раз** через якорь `&shared_auth`:
+      ```yaml
+      defaults: &default_ssh
+        user: root
+        port: 22
+        auth:
+          type: key
+          key_path: ~/.ssh/id_ed25519 # или type: password, password: secret
+
+      servers:
+        - host: 192.168.1.10
+          name: prod-web-01
+          tags: [prod, web]
+          <<: *default_ssh
+
+        - host: 192.168.1.11
+          name: prod-web-02
+          tags: [prod, web]
+          <<: *default_ssh
+
+        - host: 192.168.1.20
+          name: staging-db
+          tags: [staging, db]
+          user: ubuntu # переопределение поля при необходимости
+          <<: *default_ssh
+      ```
+    - Для JSON: поддержка секции `"defaults"` с наследованием общих параметров аутентификации.
 - **Автоматический процесс развертывания («Install & Enroll»)**:
-  1. Параллельное подключение к серверам через плагин `config-studio-ssh`.
+  1. Параллельное подключение к серверам через плагин `config-studio-ssh` с использованием общего ключа/пароля из якоря.
   2. Определение архитектуры узла (Linux x86_64, arm64, debian, rhel, alpine).
   3. Заливка бинарника `config-studio-agent` по SFTP.
   4. Автоматическая настройка systemd-сервиса (`systemctl enable --now config-studio-agent`).
   5. Генерация уникального auth-токена и проверка liveness.
   6. Мгновенная регистрация серверов в плагине `config-studio-remote-agent` с прописанными тегами (`prod`, `staging`, `backend`).
-- **Результат**: весь парк серверов подключается к Config Studio без ручной настройки в консоли.
+- **Результат**: файл со 100 серверами настраивается за 1 минуту без дублирования ключей и паролей!
 
 ---
 
