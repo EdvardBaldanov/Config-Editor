@@ -70,6 +70,7 @@
   - **Каталог официальных плагинов (1-клик установка)**:
     - 🌐 **[config-studio-web-devkit](https://github.com/EdvardBaldanov/config-studio-web-devkit)**: Живой предпросмотр HTML/PHP в сплит-панели с эмуляцией мобильных устройств, сниппетами Monaco и запуском встроенного веб-сервера (`php -S`).
     - 🖥️ **[config-studio-remote-agent](https://github.com/EdvardBaldanov/config-studio-remote-agent)**: Переключатель серверов в шапке для редактирования файлов на нескольких серверах из единого интерфейса.
+  - 📖 **[Документация и SDK по созданию плагинов](https://github.com/EdvardBaldanov/config-studio-plugin-docs)**: Полное пошаговое руководство, спецификация `plugin.json`, TypeScript типизация, справочник JavaScript API и готовые шаблоны.
 
 ---
 
@@ -208,6 +209,7 @@ Shipped as a **single standalone portable binary** for **Linux** and **Windows**
   - **Official Plugins Catalog (1-click install)**:
     - 🌐 **[config-studio-web-devkit](https://github.com/EdvardBaldanov/config-studio-web-devkit)**: Live split-screen HTML/PHP preview, responsive viewport simulation, Monaco snippets, and live web server runner (`php -S`).
     - 🖥️ **[config-studio-remote-agent](https://github.com/EdvardBaldanov/config-studio-remote-agent)**: Header server switcher to connect to remote Config Studio instances and edit files across machines from a single UI.
+  - 📖 **[Plugin Development Documentation & SDK](https://github.com/EdvardBaldanov/config-studio-plugin-docs)**: Full developer guide, `plugin.json` manifest schema, TypeScript definitions, JavaScript API reference, and ready-to-use starter templates.
 
 ---
 
