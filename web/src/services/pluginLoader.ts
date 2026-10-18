@@ -50,10 +50,16 @@ class PluginLoader {
   private editorInstance: any = null;
   private loadedPluginIds: Set<string> = new Set();
   private queuedCompletionProviders: Array<{ language: string; provider: any }> = [];
+  private outlineProviders: Map<string, (content: string, filename: string) => OutlineNode[]> = new Map();
 
   private openFileHandler: (path: string) => Promise<void> = async () => {};
   private createFileHandler: (path: string, content?: string) => Promise<void> = async () => {};
   private refreshFilesHandler: () => Promise<void> = async () => {};
+
+  getOutlineProvider(languageOrExt: string) {
+    if (!languageOrExt) return undefined;
+    return this.outlineProviders.get(languageOrExt.toLowerCase());
+  }
 
   constructor() {
     this.setupGlobalAPI();
@@ -170,6 +176,16 @@ class PluginLoader {
         }
         this.queuedCompletionProviders.push({ language, provider });
         return null;
+      },
+
+      registerOutlineProvider: (provider: {
+        language: string;
+        parse: (content: string, filename: string) => OutlineNode[];
+      }) => {
+        if (provider && provider.language && provider.parse) {
+          this.outlineProviders.set(provider.language.toLowerCase(), provider.parse);
+          console.log(`[PluginLoader] Registered custom outline provider for ${provider.language}`);
+        }
       },
 
       openFile: async (path: string) => {

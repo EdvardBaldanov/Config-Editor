@@ -120,7 +120,28 @@ export const Editor: React.FC<EditorProps> = ({
 
   // Extract all root sections for the full-width Quick Jump tag bar
   const rootTags = useMemo(() => {
-    return (outline || []).map((node) => ({
+    if (!outline || outline.length === 0) return [];
+
+    let candidates = outline;
+    if (
+      candidates.length === 1 &&
+      candidates[0].children &&
+      candidates[0].children.length > 0
+    ) {
+      if (candidates[0].label.startsWith('<html')) {
+        const bodyChild = candidates[0].children.find((c) =>
+          c.label.startsWith('<body')
+        );
+        candidates =
+          bodyChild && bodyChild.children && bodyChild.children.length > 0
+            ? bodyChild.children
+            : candidates[0].children;
+      } else {
+        candidates = candidates[0].children;
+      }
+    }
+
+    return candidates.slice(0, 35).map((node) => ({
       id: node.id,
       label: node.label,
       line: node.line,
