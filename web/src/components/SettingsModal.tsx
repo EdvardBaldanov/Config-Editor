@@ -23,6 +23,8 @@ import {
   FileArchive,
   Terminal,
   ShieldAlert,
+  Sparkles,
+  Download,
 } from 'lucide-react';
 import { Settings, PluginItem } from '../types';
 import { translations, Language } from '../utils/i18n';
@@ -55,6 +57,37 @@ const PRESET_ACCENT_COLORS = [
   { name: 'Amber Gold', hex: '#f59e0b' },
   { name: 'Purple Neon', hex: '#a855f7' },
   { name: 'Coral Rose', hex: '#f43f5e' },
+];
+
+interface CatalogPlugin {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  icon: string;
+  repoUrl: string;
+  tags: string[];
+}
+
+const OFFICIAL_CATALOG: CatalogPlugin[] = [
+  {
+    id: 'web-devkit',
+    name: 'Web DevKit',
+    version: '1.1.0',
+    description: 'Живой Split-Screen предпросмотр HTML/PHP, симуляция экранов устройств, веб-сервер :8085 и автодополнение Monaco.',
+    icon: '🌐',
+    repoUrl: 'https://github.com/EdvardBaldanov/config-studio-web-devkit',
+    tags: ['HTML', 'PHP', 'Live Preview', 'Server'],
+  },
+  {
+    id: 'remote-agent',
+    name: 'Remote Server Agent',
+    version: '1.1.0',
+    description: 'Управление парком удаленных серверов (VPS, хосты) и мгновенное переключение между ними из шапки редактора.',
+    icon: '🖥️',
+    repoUrl: 'https://github.com/EdvardBaldanov/config-studio-remote-agent',
+    tags: ['Multi-Server', 'VPS', 'Agent', 'Remote'],
+  },
 ];
 
 type SettingsTab = 'general' | 'security' | 'plugins';
@@ -173,6 +206,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       await pluginManager.loadPlugins();
     } catch (err: any) {
       setInstallMsg({ text: err.message || 'Ошибка установки по ссылке', isError: true });
+    } finally {
+      setIsInstalling(false);
+    }
+  };
+
+  const handleInstallCatalogPlugin = async (p: CatalogPlugin) => {
+    setIsInstalling(true);
+    setInstallMsg(null);
+    try {
+      const installed = await api.installPluginUrl(p.repoUrl);
+      setInstallMsg({
+        text: `Плагин "${installed.name}" успешно установлен!`,
+        isError: false,
+      });
+      await loadPlugins();
+      await pluginManager.loadPlugins();
+    } catch (err: any) {
+      setInstallMsg({ text: err.message || `Ошибка установки ${p.name}`, isError: true });
     } finally {
       setIsInstalling(false);
     }
@@ -717,8 +768,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {pluginsList.length === 0 ? (
-                <div className="p-6 text-center text-xs text-gray-500 border border-base-border rounded-2xl bg-black/10">
-                  {t.noPlugins}
+                <div className="p-6 text-center text-xs text-gray-400 border border-base-border rounded-2xl bg-black/10 flex flex-col items-center justify-center space-y-1">
+                  <Package className="w-8 h-8 text-gray-500 mb-1 opacity-60" />
+                  <span className="font-medium text-gray-300">{t.noInstalledPlugins}</span>
+                  <span className="text-[11px] text-gray-500">
+                    Установите нужные модули из каталога ниже, через ZIP или по ссылке из GitHub.
+                  </span>
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -787,6 +842,79 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Official Plugins Catalog */}
+            <div className="p-4 rounded-2xl bg-gray-100/60 dark:bg-black/20 border border-base-border space-y-3">
+              <div>
+                <div className="flex items-center space-x-1.5 mb-1">
+                  <Sparkles size={14} className="text-accent" />
+                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    {t.catalogTitle}
+                  </label>
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  {t.catalogDesc}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2.5">
+                {OFFICIAL_CATALOG.map((item) => {
+                  const isInstalled = pluginsList.some((p) => p.id === item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-3.5 rounded-2xl border border-base-border bg-white dark:bg-white/5 flex items-start justify-between gap-3 hover:border-gray-500/30 transition shadow-2xs"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-base">{item.icon}</span>
+                          <span className="font-semibold text-xs text-gray-900 dark:text-white">
+                            {item.name}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-base-border text-gray-400 font-mono">
+                            v{item.version}
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                          {item.description}
+                        </p>
+
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          {item.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-black/20 dark:bg-black/40 text-gray-600 dark:text-gray-400 font-mono"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 pt-0.5">
+                        {isInstalled ? (
+                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            <Check size={12} />
+                            <span>{t.installedBadge}</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleInstallCatalogPlugin(item)}
+                            disabled={isInstalling}
+                            className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-accent hover:opacity-90 text-gray-900 transition disabled:opacity-50 cursor-pointer shadow-xs active:scale-95"
+                          >
+                            <Download size={13} />
+                            <span>{isInstalling ? t.installing : t.installCatalogBtn}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Install New Plugin Section (3 methods) */}

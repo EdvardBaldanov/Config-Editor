@@ -35,7 +35,6 @@ func NewManager(dataDir string, runner *Runner) (*Manager, error) {
 	}
 
 	m.loadState()
-	m.seedDefaultPlugins()
 
 	return m, nil
 }
@@ -113,7 +112,7 @@ func (m *Manager) ListPlugins() ([]Plugin, error) {
 			Enabled:     enabled,
 			Dir:         pDir,
 			InstalledAt: installedAt,
-			Builtin:     manifest.ID == "web-devkit" || manifest.ID == "remote-agent",
+			Builtin:     false,
 		})
 	}
 
