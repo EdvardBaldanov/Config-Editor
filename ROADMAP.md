@@ -38,6 +38,26 @@
 
 ---
 
+### 3. 💻 Скрываемая нижняя панель для CLI и инструментов (Collapsible Bottom Dock)
+Выделенная нижняя док-панель (Bottom Console / CLI Panel) для размещения встроенных терминалов, потоков вывода команд и консольных инструментов.
+
+#### Ключевой функционал:
+- **Универсальный Bottom Dock**:
+  - Поддержка переключения видимости через API плагинов: `window.ConfigStudio.toggleBottomPanel({ id, title, render })`.
+  - Глобальный хоткей для быстрого сворачивания / разворачивания (по аналогии с VS Code / JetBrains: `Ctrl+\`` или `Ctrl+J`).
+  - Кнопка быстрого доступа в панели состояния (Status Bar) или тулбаре редактора с индикатором активных сессий.
+- **Интерактивные возможности**:
+  - Многовкладочность в нижней панели (например, вкладка `Terminal`, вкладка `Docker Compose Logs`, `Output`).
+  - Плавный ресайз высоты (drag-to-resize сплиттером) и пресеты высоты (минимизировано / 240px / 420px / полноэкранный режим).
+  - Сохранение состояния (открыта/закрыта, высота) в пользовательских настройках (`settings.json`).
+- **Целевые сценарии применения**:
+  - 🖥️ **CLI / Terminal плагин** (`config-studio-terminal` / `config-studio-cli` на базе xterm.js): доступ к локальному шеллу (PowerShell, Bash, zsh) или удаленной SSH-консоли серверов.
+  - 🐳 **Стриминг логов**: вывод stdout/stderr контейнеров `docker compose logs -f`.
+  - ⚡ **Task Runner / Build Output**: отображение вывода линтеров, сборщиков и скриптов валидации.
+- **Требуемые разрешения**: `ui.panels`, `terminal.exec`.
+
+---
+
 ## 🌟 Текущий статус экосистемы
 
 - [x] **v1.1.0**: Чистое ядро редактора, гибридная система установки плагинов (Каталог в 1 клик, URL, ZIP, папка).
@@ -45,3 +65,7 @@
 - [x] **[config-studio-web-devkit](https://github.com/EdvardBaldanov/config-studio-web-devkit)**: HTML/PHP Live Preview, сервер :8085, сниппеты Monaco.
 - [x] **[config-studio-remote-agent](https://github.com/EdvardBaldanov/config-studio-remote-agent)**: Мультисерверное переключение из шапки редактора.
 - [x] **[config-studio-plugin-docs](https://github.com/EdvardBaldanov/config-studio-plugin-docs)**: Официальное руководство разработчика плагинов, спецификация манифеста и TypeScript SDK.
+- [ ] **config-studio-docker**: Управление контейнерами и Compose (`up`, `down`, `pull`, `logs`).
+- [ ] **config-studio-remote-agent v2**: Broadcast / Multicast конфигураций на серверы с модальным окном Diff & Approve.
+- [ ] **Collapsible Bottom Dock & CLI**: Интеграция встроенного терминала и панелей отладки в нижний док.
+
