@@ -16,7 +16,7 @@ import {
   CornerDownLeft,
   Loader2,
 } from 'lucide-react';
-import { Settings, OpenFile, FileItem } from '../types';
+import { Settings, OpenFile, FileItem, HeaderItemDef } from '../types';
 import { translations, Language } from '../utils/i18n';
 import { api } from '../services/api';
 import { formatBytes } from '../utils/color';
@@ -26,6 +26,7 @@ interface HeaderProps {
   currentFile: OpenFile | null;
   currentDir: string;
   isSaving: boolean;
+  pluginHeaderItems?: HeaderItemDef[];
   onSave: () => void;
   onDownload: () => void;
   onOpenSettings: () => void;
@@ -42,6 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentFile,
   currentDir,
   isSaving,
+  pluginHeaderItems = [],
   onSave,
   onDownload,
   onOpenSettings,
@@ -373,7 +375,12 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center space-x-1.5 flex-shrink-0">
+      <div className="flex items-center space-x-2 flex-shrink-0">
+        {/* Plugin Header Items (e.g. Remote Agent Switcher) */}
+        {pluginHeaderItems.map((item) => (
+          <PluginHeaderItemMount key={item.id} item={item} />
+        ))}
+
         {/* Save button */}
         <button
           onClick={onSave}
@@ -460,3 +467,16 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+
+const PluginHeaderItemMount: React.FC<{ item: HeaderItemDef }> = ({ item }) => {
+  const mountRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (mountRef.current) {
+      item.render(mountRef.current);
+    }
+  }, [item]);
+
+  return <div ref={mountRef} className="flex items-center" />;
+};
+

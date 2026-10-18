@@ -17,6 +17,7 @@ import (
 
 	"config-studio/internal/config"
 	appfs "config-studio/internal/fs"
+	"config-studio/internal/plugin"
 )
 
 type Config struct {
@@ -26,20 +27,24 @@ type Config struct {
 }
 
 type Server struct {
-	cfg        Config
-	config     *config.Manager
-	fs         *appfs.Service
-	handler    http.Handler
-	sessionsMu sync.RWMutex
-	sessions   map[string]time.Time
+	cfg          Config
+	config       *config.Manager
+	fs           *appfs.Service
+	plugins      *plugin.Manager
+	pluginRunner *plugin.Runner
+	handler      http.Handler
+	sessionsMu   sync.RWMutex
+	sessions     map[string]time.Time
 }
 
-func NewServer(cfg Config, cfgMgr *config.Manager, fsSvc *appfs.Service) *Server {
+func NewServer(cfg Config, cfgMgr *config.Manager, fsSvc *appfs.Service, pMgr *plugin.Manager, pRunner *plugin.Runner) *Server {
 	s := &Server{
-		cfg:      cfg,
-		config:   cfgMgr,
-		fs:       fsSvc,
-		sessions: make(map[string]time.Time),
+		cfg:          cfg,
+		config:       cfgMgr,
+		fs:           fsSvc,
+		plugins:      pMgr,
+		pluginRunner: pRunner,
+		sessions:     make(map[string]time.Time),
 	}
 	s.setupRoutes()
 	return s
@@ -74,6 +79,19 @@ func (s *Server) setupRoutes() {
 	mux.HandleFunc("POST /api/fs/upload", s.handleUploadFile)
 	mux.HandleFunc("GET /api/fs/download", s.handleDownloadFile)
 	mux.HandleFunc("GET /api/fs/search", s.handleSearchFiles)
+
+	// Plugin APIs
+	mux.HandleFunc("GET /api/plugins", s.handleListPlugins)
+	mux.HandleFunc("POST /api/plugins/toggle", s.handleTogglePlugin)
+	mux.HandleFunc("POST /api/plugins/install/upload", s.handleInstallPluginUpload)
+	mux.HandleFunc("POST /api/plugins/install/url", s.handleInstallPluginURL)
+	mux.HandleFunc("DELETE /api/plugins/{id}", s.handleDeletePlugin)
+	mux.HandleFunc("GET /api/plugins/{id}/files/{path...}", s.handleServePluginFile)
+	mux.HandleFunc("POST /api/plugins/exec", s.handleExecPluginCommand)
+	mux.HandleFunc("POST /api/plugin-processes/start", s.handleStartPluginProcess)
+	mux.HandleFunc("POST /api/plugin-processes/stop", s.handleStopPluginProcess)
+	mux.HandleFunc("GET /api/plugin-processes", s.handleListPluginProcesses)
+	mux.HandleFunc("GET /api/plugin-processes/{id}/logs", s.handleGetPluginProcessLogs)
 
 	// Health check
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {

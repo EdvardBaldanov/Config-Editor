@@ -13,6 +13,64 @@ export interface Settings {
   authPass?: string;
   apiEnabled: boolean;
   apiKey?: string;
+  pluginExecUnrestricted?: boolean;
+}
+
+export interface PluginManifest {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author?: string;
+  icon?: string;
+  entry: string;
+  css?: string;
+  permissions?: string[];
+  fileMatches?: string[];
+  minAppVersion?: string;
+}
+
+export interface PluginItem extends PluginManifest {
+  enabled: boolean;
+  dir: string;
+  installedAt: string;
+  builtin?: boolean;
+}
+
+export interface ProcessInfo {
+  id: string;
+  pluginId: string;
+  command: string;
+  args: string[];
+  pid: number;
+  port?: number;
+  startedAt: string;
+  status: 'running' | 'stopped' | 'failed';
+}
+
+export interface SplitPanelDef {
+  id: string;
+  pluginId: string;
+  title: string;
+  open: boolean;
+  render: (container: HTMLElement) => void;
+}
+
+export interface ToolbarButtonDef {
+  id: string;
+  pluginId: string;
+  label: string;
+  title?: string;
+  icon?: string;
+  visible?: () => boolean;
+  onClick: () => void;
+}
+
+export interface HeaderItemDef {
+  id: string;
+  pluginId: string;
+  order?: number;
+  render: (container: HTMLElement) => void;
 }
 
 export interface FileItem {

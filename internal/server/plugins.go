@@ -1,0 +1,238 @@
+package server
+
+import (
+	"encoding/json"
+	"net/http"
+	"strings"
+
+	"config-studio/internal/plugin"
+)
+
+func (s *Server) handleListPlugins(w http.ResponseWriter, r *http.Request) {
+	plugins, err := s.plugins.ListPlugins()
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "failed to list plugins: "+err.Error())
+		return
+	}
+	if plugins == nil {
+		plugins = []plugin.Plugin{}
+	}
+	jsonResponse(w, http.StatusOK, map[string]any{"plugins": plugins})
+}
+
+func (s *Server) handleTogglePlugin(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID      string `json:"id"`
+		Enabled bool   `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.ID == "" {
+		jsonError(w, http.StatusBadRequest, "plugin id is required")
+		return
+	}
+
+	if err := s.plugins.TogglePlugin(req.ID, req.Enabled); err != nil {
+		jsonError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	p, err := s.plugins.GetPlugin(req.ID)
+	if err != nil {
+		jsonResponse(w, http.StatusOK, map[string]any{"status": "ok", "id": req.ID, "enabled": req.Enabled})
+		return
+	}
+	jsonResponse(w, http.StatusOK, p)
+}
+
+func (s *Server) handleInstallPluginUpload(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(50 << 20); err != nil { // 50MB max
+		jsonError(w, http.StatusBadRequest, "file too large or invalid multipart form")
+		return
+	}
+
+	file, header, err := r.FormFile("plugin")
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "missing 'plugin' file parameter: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	if !strings.HasSuffix(strings.ToLower(header.Filename), ".zip") {
+		jsonError(w, http.StatusBadRequest, "only .zip archives are supported for plugin installation")
+		return
+	}
+
+	installed, err := s.plugins.InstallFromZip(file, header.Size)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "failed to install plugin: "+err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"status": "installed",
+		"plugin": installed,
+	})
+}
+
+func (s *Server) handleInstallPluginURL(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.URL == "" {
+		jsonError(w, http.StatusBadRequest, "url is required")
+		return
+	}
+
+	installed, err := s.plugins.InstallFromURL(req.URL)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "failed to install plugin from URL: "+err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"status": "installed",
+		"plugin": installed,
+	})
+}
+
+func (s *Server) handleDeletePlugin(w http.ResponseWriter, r *http.Request) {
+	pluginID := r.PathValue("id")
+	if pluginID == "" {
+		jsonError(w, http.StatusBadRequest, "plugin id is required")
+		return
+	}
+
+	if err := s.plugins.DeletePlugin(pluginID); err != nil {
+		jsonError(w, http.StatusInternalServerError, "failed to delete plugin: "+err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{"status": "deleted", "id": pluginID})
+}
+
+func (s *Server) handleServePluginFile(w http.ResponseWriter, r *http.Request) {
+	pluginID := r.PathValue("id")
+	relPath := r.PathValue("path")
+	if pluginID == "" || relPath == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	s.plugins.ServeFile(w, r, pluginID, relPath)
+}
+
+func (s *Server) handleExecPluginCommand(w http.ResponseWriter, r *http.Request) {
+	var req plugin.ExecRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Command == "" {
+		jsonError(w, http.StatusBadRequest, "command is required")
+		return
+	}
+
+	settings := s.config.Get()
+	unrestricted := settings.PluginExecUnrestricted
+
+	// If no cwd specified, default to workdir
+	if req.Cwd == "" {
+		req.Cwd = s.fs.WorkDir
+	}
+
+	resp, err := s.pluginRunner.ExecCommand(r.Context(), req, unrestricted)
+	if err != nil && resp == nil {
+		jsonError(w, http.StatusForbidden, err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleStartPluginProcess(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		PluginID  string   `json:"pluginId"`
+		Command   string   `json:"command"`
+		Args      []string `json:"args"`
+		Cwd       string   `json:"cwd"`
+		Port      int      `json:"port"`
+		Confirmed bool     `json:"confirmed"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Command == "" {
+		jsonError(w, http.StatusBadRequest, "command is required")
+		return
+	}
+
+	if req.Cwd == "" {
+		req.Cwd = s.fs.WorkDir
+	}
+
+	settings := s.config.Get()
+	unrestricted := settings.PluginExecUnrestricted
+
+	info, err := s.pluginRunner.StartProcess(req.PluginID, req.Command, req.Args, req.Cwd, req.Port, unrestricted, req.Confirmed)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "failed to start process: "+err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, info)
+}
+
+func (s *Server) handleStopPluginProcess(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ProcessID string `json:"processId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.ProcessID == "" {
+		jsonError(w, http.StatusBadRequest, "processId is required")
+		return
+	}
+
+	if err := s.pluginRunner.StopProcess(req.ProcessID); err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{"status": "stopped", "processId": req.ProcessID})
+}
+
+func (s *Server) handleListPluginProcesses(w http.ResponseWriter, r *http.Request) {
+	procs := s.pluginRunner.ListProcesses()
+	jsonResponse(w, http.StatusOK, map[string]any{"processes": procs})
+}
+
+func (s *Server) handleGetPluginProcessLogs(w http.ResponseWriter, r *http.Request) {
+	procID := r.PathValue("id")
+	if procID == "" {
+		jsonError(w, http.StatusBadRequest, "process id is required")
+		return
+	}
+
+	logs, err := s.pluginRunner.GetProcessLogs(procID)
+	if err != nil {
+		jsonError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{"processId": procID, "logs": logs})
+}

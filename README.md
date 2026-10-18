@@ -57,6 +57,19 @@
   - Полностью статический исполняемый файл (`CGO_ENABLED=0`).
   - Фронтенд встроен внутрь бинарника (`go:embed`).
   - Автоматическая установка в качестве службы Linux (`-install` / `-uninstall`) с автоопределением **systemd** и **OpenRC**.
+- **Модульная система плагинов (Plugin System):**
+  - **Изменение интерфейса**: добавление кастомных кнопок в тулбар, элементов в шапку и сплит-панелей (split screen).
+  - **Гибридная установка (3 способа)**:
+    1. Drag-and-drop `.zip` архива через графический интерфейс (вкладка «Плагины» в настройках).
+    2. Установка по ссылке (URL архива или ссылка на репозиторий GitHub).
+    3. Прямое копирование папки в каталог `data/plugins/<имя_плагина>/`.
+  - **Безопасное выполнение команд на хосте**:
+    - Безусловная блокировка деструктивных команд (`rm -rf /`, `mkfs`, форматирование дисков, выключение сервера).
+    - Всплывающее окно подтверждения выполнения системных команд.
+    - Переключатель «Режим повышенных привилегий («Я знаю, что делаю»)» для доверенного окружения.
+  - **Флагманские предустановленные плагины**:
+    - 🌐 **Web DevKit**: Живой предпросмотр HTML/PHP в сплит-панели с эмуляцией мобильных устройств и запуском встроенного веб-сервера (`php -S`).
+    - 🖥️ **Remote Server Agent**: Переключатель серверов в шапке для редактирования файлов на нескольких серверах из единого интерфейса.
 
 ---
 
@@ -182,6 +195,19 @@ Shipped as a **single standalone portable binary** for **Linux** and **Windows**
   - Statically compiled standalone binary (`CGO_ENABLED=0`).
   - Web UI assets embedded directly into the Go binary (`go:embed`).
   - Built-in service installer (`-install` / `-uninstall`) with auto-detection for **systemd** and **OpenRC**.
+- **Modular Plugin System:**
+  - **UI Extensibility**: add custom toolbar actions, header dropdowns, and split-screen preview panels.
+  - **Hybrid Installation (3-in-1)**:
+    1. Drag-and-drop `.zip` upload in Settings modal (Plugins tab).
+    2. Install from URL (direct `.zip` link or GitHub repository `https://github.com/user/plugin`).
+    3. Direct placement: copy plugin folder into `data/plugins/<id>/` (auto-detected).
+  - **Host Command Execution & Security**:
+    - Unconditional blacklist blocking destructive operations (`rm -rf /`, `mkfs`, raw disk writes, shutdown/reboot).
+    - Interactive confirmation modal for risky commands.
+    - "I know what I'm doing" mode to run host processes without prompts.
+  - **Flagship Pre-installed Plugins**:
+    - 🌐 **Web DevKit**: Live split-screen HTML/PHP preview, responsive viewport simulation, and live web server runner (`php -S`).
+    - 🖥️ **Remote Server Agent**: Header server switcher to connect to remote Config Studio instances and edit files across machines from a single UI.
 
 ---
 

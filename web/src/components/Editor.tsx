@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import MonacoEditor, { OnMount } from '@monaco-editor/react';
-import { OpenFile, Settings, OutlineNode } from '../types';
-import { X, FileCode, Hash } from 'lucide-react';
+import { OpenFile, Settings, OutlineNode, ToolbarButtonDef } from '../types';
+import { X, FileCode, Hash, Play } from 'lucide-react';
 import { translations } from '../utils/i18n';
 import { getLuminance } from '../utils/color';
 
@@ -10,6 +10,7 @@ interface EditorProps {
   activeFilePath: string | null;
   settings: Settings;
   outline?: OutlineNode[];
+  pluginButtons?: ToolbarButtonDef[];
   onSelectTab: (path: string) => void;
   onCloseTab: (path: string) => void;
   onChangeContent: (val: string) => void;
@@ -23,6 +24,7 @@ export const Editor: React.FC<EditorProps> = ({
   activeFilePath,
   settings,
   outline = [],
+  pluginButtons = [],
   onSelectTab,
   onCloseTab,
   onChangeContent,
@@ -139,6 +141,22 @@ export const Editor: React.FC<EditorProps> = ({
       case 'cfg':
       case 'env':
         return 'ini';
+      case 'html':
+      case 'htm':
+        return 'html';
+      case 'php':
+      case 'phtml':
+        return 'php';
+      case 'js':
+      case 'javascript':
+        return 'javascript';
+      case 'ts':
+      case 'typescript':
+        return 'typescript';
+      case 'css':
+        return 'css';
+      case 'sql':
+        return 'sql';
       case 'sh':
       case 'bash':
         return 'shell';
@@ -167,46 +185,67 @@ export const Editor: React.FC<EditorProps> = ({
     );
   }
 
+  const visiblePluginButtons = pluginButtons.filter((btn) => !btn.visible || btn.visible());
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-base">
-      {/* Multi-Tab Bar */}
-      <div className="h-10 bg-base-surface border-b border-base-border flex items-center px-2 space-x-1 overflow-x-auto select-none flex-shrink-0">
-        {tabs.map((tab) => {
-          const isActive = tab.path === activeFilePath;
-          return (
-            <div
-              key={tab.path}
-              onClick={() => onSelectTab(tab.path)}
-              className={`group flex items-center space-x-2 px-3 py-1.5 rounded-t-lg text-xs font-medium cursor-pointer transition-all border-b-2 max-w-[200px] ${
-                isActive
-                  ? 'bg-base text-gray-900 dark:text-white shadow-sm'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 border-transparent'
-              }`}
-              style={{
-                borderBottomColor: isActive ? settings.accentColor : 'transparent',
-              }}
-            >
-              <span className="truncate">{tab.name}</span>
-              {tab.isDirty && (
-                <span
-                  className="w-2 h-2 rounded-full inline-block animate-pulse flex-shrink-0"
-                  style={{ backgroundColor: settings.accentColor }}
-                  title="Несохраненные изменения"
-                />
-              )}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCloseTab(tab.path);
+      {/* Multi-Tab Bar & Plugin Action Buttons */}
+      <div className="h-10 bg-base-surface border-b border-base-border flex items-center justify-between px-2 select-none flex-shrink-0">
+        <div className="flex items-center space-x-1 overflow-x-auto">
+          {tabs.map((tab) => {
+            const isActive = tab.path === activeFilePath;
+            return (
+              <div
+                key={tab.path}
+                onClick={() => onSelectTab(tab.path)}
+                className={`group flex items-center space-x-2 px-3 py-1.5 rounded-t-lg text-xs font-medium cursor-pointer transition-all border-b-2 max-w-[200px] ${
+                  isActive
+                    ? 'bg-base text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 border-transparent'
+                }`}
+                style={{
+                  borderBottomColor: isActive ? settings.accentColor : 'transparent',
                 }}
-                className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/20 text-gray-400 hover:text-gray-900 dark:hover:text-white flex-shrink-0"
-                title="Закрыть вкладку"
               >
-                <X className="w-3 h-3" />
+                <span className="truncate">{tab.name}</span>
+                {tab.isDirty && (
+                  <span
+                    className="w-2 h-2 rounded-full inline-block animate-pulse flex-shrink-0"
+                    style={{ backgroundColor: settings.accentColor }}
+                    title="Несохраненные изменения"
+                  />
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCloseTab(tab.path);
+                  }}
+                  className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/20 text-gray-400 hover:text-gray-900 dark:hover:text-white flex-shrink-0"
+                  title="Закрыть вкладку"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Plugin Action Buttons (e.g. Live Preview) */}
+        {visiblePluginButtons.length > 0 && (
+          <div className="flex items-center space-x-1.5 pl-2 shrink-0">
+            {visiblePluginButtons.map((btn) => (
+              <button
+                key={btn.id}
+                onClick={btn.onClick}
+                title={btn.title || btn.label}
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-accent text-gray-900 hover:opacity-90 shadow-sm transition flex items-center space-x-1.5 cursor-pointer"
+              >
+                <Play size={11} fill="currentColor" />
+                <span>{btn.label}</span>
               </button>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Quick Jump Root Tag Cloud placed under the tabs */}

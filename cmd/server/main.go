@@ -14,6 +14,7 @@ import (
 
 	"config-studio/internal/config"
 	appfs "config-studio/internal/fs"
+	"config-studio/internal/plugin"
 	"config-studio/internal/server"
 	"config-studio/web"
 )
@@ -78,6 +79,13 @@ func main() {
 		log.Fatalf("Failed to initialize filesystem service: %v", err)
 	}
 
+	// Initialize plugin runner and manager
+	pluginRunner := plugin.NewRunner()
+	pluginMgr, err := plugin.NewManager(*dataDir, pluginRunner)
+	if err != nil {
+		log.Fatalf("Failed to initialize plugin manager: %v", err)
+	}
+
 	// Prepare embedded Web FS
 	subFS, err := web.GetFS()
 	if err != nil {
@@ -90,7 +98,7 @@ func main() {
 		WebFS:    subFS,
 	}
 
-	appServer := server.NewServer(srvConfig, cfgMgr, fsSvc)
+	appServer := server.NewServer(srvConfig, cfgMgr, fsSvc, pluginMgr, pluginRunner)
 
 	addr := fmt.Sprintf("0.0.0.0:%d", *port)
 	httpServer := &http.Server{
@@ -122,6 +130,9 @@ func main() {
 
 	<-stop
 	log.Println("Shutting down Config Studio...")
+
+	// Terminate any running plugin processes
+	pluginRunner.Shutdown()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

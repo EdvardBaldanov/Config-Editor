@@ -22,8 +22,9 @@ type Settings struct {
 	AuthEnabled   bool   `json:"authEnabled" yaml:"auth_enabled"`
 	AuthUser      string `json:"authUser" yaml:"auth_user"`
 	AuthPass      string `json:"authPass,omitempty" yaml:"auth_pass,omitempty"`
-	ApiEnabled    bool   `json:"apiEnabled" yaml:"api_enabled"`
-	ApiKey        string `json:"apiKey,omitempty" yaml:"api_key,omitempty"`
+	ApiEnabled             bool   `json:"apiEnabled" yaml:"api_enabled"`
+	ApiKey                 string `json:"apiKey,omitempty" yaml:"api_key,omitempty"`
+	PluginExecUnrestricted bool   `json:"pluginExecUnrestricted" yaml:"plugin_exec_unrestricted"`
 }
 
 type Manager struct {
@@ -44,8 +45,9 @@ func DefaultSettings() Settings {
 		AuthEnabled:   false,
 		AuthUser:      "admin",
 		AuthPass:      "admin",
-		ApiEnabled:    false,
-		ApiKey:        "",
+		ApiEnabled:             false,
+		ApiKey:                 "",
+		PluginExecUnrestricted: false,
 	}
 }
 
@@ -187,6 +189,7 @@ func (m *Manager) Update(s Settings) error {
 	if s.ApiKey != "" {
 		m.current.ApiKey = s.ApiKey
 	}
+	m.current.PluginExecUnrestricted = s.PluginExecUnrestricted
 
 	return m.save()
 }

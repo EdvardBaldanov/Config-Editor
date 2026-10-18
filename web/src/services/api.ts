@@ -1,9 +1,36 @@
-import { Settings, FileItem, FileInfo } from '../types';
+import { Settings, FileItem, FileInfo, PluginItem, ProcessInfo } from '../types';
+
+let remoteEndpoint: string | null = localStorage.getItem('cs_active_remote_endpoint');
+let remoteToken: string | null = localStorage.getItem('cs_active_remote_token');
+
+export function setRemoteEndpoint(endpoint: string | null, token: string = '') {
+  if (endpoint) {
+    localStorage.setItem('cs_active_remote_endpoint', endpoint);
+    localStorage.setItem('cs_active_remote_token', token);
+    remoteEndpoint = endpoint;
+    remoteToken = token;
+  } else {
+    localStorage.removeItem('cs_active_remote_endpoint');
+    localStorage.removeItem('cs_active_remote_token');
+    remoteEndpoint = null;
+    remoteToken = null;
+  }
+}
+
+export function getRemoteEndpoint() {
+  return { endpoint: remoteEndpoint, token: remoteToken };
+}
 
 async function webFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers || {});
   headers.set('X-ConfigStudio-Web', '1');
-  return fetch(url, {
+  if (remoteToken) {
+    headers.set('Authorization', `Bearer ${remoteToken}`);
+    headers.set('X-API-Key', remoteToken);
+  }
+  const baseUrl = remoteEndpoint ? remoteEndpoint.replace(/\/$/, '') : '';
+  const finalUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+  return fetch(finalUrl, {
     ...options,
     headers,
   });
@@ -171,5 +198,130 @@ export const api = {
     if (!res.ok) return [];
     const data = await res.json().catch(() => ({}));
     return data.items || [];
+  },
+
+  // Plugin APIs
+  async getPlugins(): Promise<PluginItem[]> {
+    const res = await webFetch('/api/plugins');
+    if (!res.ok) throw new Error('Failed to load plugins');
+    const data = await res.json();
+    return data.plugins || [];
+  },
+
+  async togglePlugin(id: string, enabled: boolean): Promise<PluginItem> {
+    const res = await webFetch('/api/plugins/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, enabled }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to toggle plugin');
+    }
+    return res.json();
+  },
+
+  async uploadPluginZip(file: File): Promise<PluginItem> {
+    const formData = new FormData();
+    formData.append('plugin', file);
+    const res = await webFetch('/api/plugins/install/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to upload plugin archive');
+    }
+    const data = await res.json();
+    return data.plugin;
+  },
+
+  async installPluginUrl(url: string): Promise<PluginItem> {
+    const res = await webFetch('/api/plugins/install/url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to install plugin from URL');
+    }
+    const data = await res.json();
+    return data.plugin;
+  },
+
+  async deletePlugin(id: string): Promise<void> {
+    const res = await webFetch(`/api/plugins/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete plugin');
+    }
+  },
+
+  async execPluginCommand(
+    pluginId: string,
+    command: string,
+    args: string[] = [],
+    cwd?: string,
+    confirmed?: boolean
+  ): Promise<any> {
+    const res = await webFetch('/api/plugins/exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pluginId, command, args, cwd, confirmed }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Command execution failed');
+    }
+    return res.json();
+  },
+
+  async startPluginProcess(
+    pluginId: string,
+    command: string,
+    args: string[] = [],
+    cwd?: string,
+    port?: number,
+    confirmed?: boolean
+  ): Promise<ProcessInfo> {
+    const res = await webFetch('/api/plugin-processes/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pluginId, command, args, cwd, port, confirmed }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to start process');
+    }
+    return res.json();
+  },
+
+  async stopPluginProcess(processId: string): Promise<void> {
+    const res = await webFetch('/api/plugin-processes/stop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ processId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to stop process');
+    }
+  },
+
+  async getPluginProcesses(): Promise<ProcessInfo[]> {
+    const res = await webFetch('/api/plugin-processes');
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => ({}));
+    return data.processes || [];
+  },
+
+  async getPluginProcessLogs(processId: string): Promise<string> {
+    const res = await webFetch(`/api/plugin-processes/${encodeURIComponent(processId)}/logs`);
+    if (!res.ok) return '';
+    const data = await res.json().catch(() => ({}));
+    return data.logs || '';
   },
 };

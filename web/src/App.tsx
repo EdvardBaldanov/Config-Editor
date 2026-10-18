@@ -6,7 +6,10 @@ import { StructureOutline } from './components/StructureOutline';
 import { SettingsModal } from './components/SettingsModal';
 import { FilePropertiesModal } from './components/FilePropertiesModal';
 import { LoginScreen } from './components/LoginScreen';
+import { PluginSplitPanel } from './components/PluginSplitPanel';
+import { CommandConfirmModal } from './components/CommandConfirmModal';
 import { api } from './services/api';
+import { pluginManager, PluginSystemState } from './services/pluginLoader';
 import { Settings, FileItem, OpenFile, FileRevision } from './types';
 import { parseContentToOutline } from './utils/astParser';
 import { translations, Language } from './utils/i18n';
@@ -24,7 +27,14 @@ export const App: React.FC = () => {
     authUser: 'admin',
     apiEnabled: false,
     apiKey: '',
+    pluginExecUnrestricted: false,
   });
+
+  const [pluginState, setPluginState] = useState<PluginSystemState>(pluginManager.getState());
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    command: string;
+    resolve: (ok: boolean) => void;
+  } | null>(null);
 
   const [authStatus, setAuthStatus] = useState<{
     authRequired: boolean;
@@ -53,6 +63,39 @@ export const App: React.FC = () => {
   useEffect(() => {
     checkAuthAndInit();
   }, []);
+
+  // Initialize Plugin System
+  useEffect(() => {
+    pluginManager.init({
+      getActiveFile: () => currentFile,
+      setActiveContent: handleContentChange,
+      showNotification: (msg, type) => {
+        console.log(`[Plugin Notification ${type}]:`, msg);
+      },
+      confirmCommand: (command: string) => {
+        return new Promise<boolean>((resolve) => {
+          setPendingConfirm({ command, resolve });
+        });
+      },
+    });
+
+    const unsubscribe = pluginManager.subscribe((state) => {
+      setPluginState(state);
+    });
+
+    pluginManager.loadPlugins();
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentFile]);
+
+  // Dispatch onFileOpen whenever active tab changes
+  useEffect(() => {
+    if (currentFile) {
+      pluginManager.notifyFileOpen(currentFile);
+    }
+  }, [currentFile?.path]);
 
   const checkAuthAndInit = async () => {
     try {
@@ -265,6 +308,8 @@ export const App: React.FC = () => {
             : tab
         )
       );
+
+      pluginManager.notifyFileSave(currentFile);
     } catch (err: any) {
       alert(`Failed to save file: ${err.message}`);
     } finally {
@@ -392,6 +437,10 @@ export const App: React.FC = () => {
     return <LoginScreen settings={settings} onLogin={handleLogin} />;
   }
 
+  const activeSplitPanel = pluginState.splitPanels.find(
+    (p) => p.id === pluginState.activeSplitPanelId && p.open
+  );
+
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-base text-gray-900 dark:text-gray-100 select-none">
       {/* Top Header */}
@@ -400,6 +449,7 @@ export const App: React.FC = () => {
         currentFile={currentFile}
         currentDir={currentDir}
         isSaving={isSaving}
+        pluginHeaderItems={pluginState.headerItems}
         onSave={handleSaveFile}
         onDownload={handleDownload}
         onOpenSettings={() => setIsSettingsOpen(true)}
@@ -411,7 +461,7 @@ export const App: React.FC = () => {
         onNavigateDir={loadDir}
       />
 
-      {/* Main Workspace (3 columns) */}
+      {/* Main Workspace */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: File Explorer */}
         <FileExplorer
@@ -434,6 +484,7 @@ export const App: React.FC = () => {
           activeFilePath={activeTabPath}
           settings={settings}
           outline={outline}
+          pluginButtons={pluginState.toolbarButtons}
           onSelectTab={setActiveTabPath}
           onCloseTab={handleCloseTab}
           onChangeContent={handleContentChange}
@@ -441,6 +492,14 @@ export const App: React.FC = () => {
           onSelectLine={handleJumpToLine}
           editorRef={editorRef}
         />
+
+        {/* Optional Plugin Split Panel (e.g. Web DevKit Live Preview) */}
+        {activeSplitPanel && (
+          <PluginSplitPanel
+            panel={activeSplitPanel}
+            onClose={() => pluginManager.closeSplitPanel(activeSplitPanel.id)}
+          />
+        )}
 
         {/* Right: Structure Outline with Quick Jump tags */}
         <StructureOutline
@@ -467,6 +526,20 @@ export const App: React.FC = () => {
         file={currentFile}
         settings={settings}
         onRestoreRevision={handleRestoreRevision}
+      />
+
+      {/* Sensitive Command Confirmation Modal */}
+      <CommandConfirmModal
+        isOpen={!!pendingConfirm}
+        command={pendingConfirm?.command || ''}
+        onConfirm={() => {
+          pendingConfirm?.resolve(true);
+          setPendingConfirm(null);
+        }}
+        onDeny={() => {
+          pendingConfirm?.resolve(false);
+          setPendingConfirm(null);
+        }}
       />
     </div>
   );
