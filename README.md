@@ -67,9 +67,9 @@
     - Безусловная блокировка деструктивных команд (`rm -rf /`, `mkfs`, форматирование дисков, выключение сервера).
     - Всплывающее окно подтверждения выполнения системных команд.
     - Переключатель «Режим повышенных привилегий («Я знаю, что делаю»)» для доверенного окружения.
-  - **Флагманские предустановленные плагины**:
-    - 🌐 **Web DevKit**: Живой предпросмотр HTML/PHP в сплит-панели с эмуляцией мобильных устройств и запуском встроенного веб-сервера (`php -S`).
-    - 🖥️ **Remote Server Agent**: Переключатель серверов в шапке для редактирования файлов на нескольких серверах из единого интерфейса.
+  - **Каталог официальных плагинов (1-клик установка)**:
+    - 🌐 **[config-studio-web-devkit](https://github.com/EdvardBaldanov/config-studio-web-devkit)**: Живой предпросмотр HTML/PHP в сплит-панели с эмуляцией мобильных устройств, сниппетами Monaco и запуском встроенного веб-сервера (`php -S`).
+    - 🖥️ **[config-studio-remote-agent](https://github.com/EdvardBaldanov/config-studio-remote-agent)**: Переключатель серверов в шапке для редактирования файлов на нескольких серверах из единого интерфейса.
 
 ---
 
@@ -205,9 +205,9 @@ Shipped as a **single standalone portable binary** for **Linux** and **Windows**
     - Unconditional blacklist blocking destructive operations (`rm -rf /`, `mkfs`, raw disk writes, shutdown/reboot).
     - Interactive confirmation modal for risky commands.
     - "I know what I'm doing" mode to run host processes without prompts.
-  - **Flagship Pre-installed Plugins**:
-    - 🌐 **Web DevKit**: Live split-screen HTML/PHP preview, responsive viewport simulation, and live web server runner (`php -S`).
-    - 🖥️ **Remote Server Agent**: Header server switcher to connect to remote Config Studio instances and edit files across machines from a single UI.
+  - **Official Plugins Catalog (1-click install)**:
+    - 🌐 **[config-studio-web-devkit](https://github.com/EdvardBaldanov/config-studio-web-devkit)**: Live split-screen HTML/PHP preview, responsive viewport simulation, Monaco snippets, and live web server runner (`php -S`).
+    - 🖥️ **[config-studio-remote-agent](https://github.com/EdvardBaldanov/config-studio-remote-agent)**: Header server switcher to connect to remote Config Studio instances and edit files across machines from a single UI.
 
 ---
 
