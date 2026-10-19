@@ -105,6 +105,19 @@ func (s *Server) setupRoutes() {
 	mux.HandleFunc("GET /api/plugin-processes", s.handleListPluginProcesses)
 	mux.HandleFunc("GET /api/plugin-processes/{id}/logs", s.handleGetPluginProcessLogs)
 
+	// Plugin Sources & Catalog APIs
+	mux.HandleFunc("GET /api/plugins/sources", s.handleListSources)
+	mux.HandleFunc("POST /api/plugins/sources", s.handleAddSource)
+	mux.HandleFunc("PUT /api/plugins/sources/{id}", s.handleUpdateSource)
+	mux.HandleFunc("DELETE /api/plugins/sources/{id}", s.handleDeleteSource)
+	mux.HandleFunc("POST /api/plugins/sources/sync", s.handleSyncSources)
+	mux.HandleFunc("GET /api/plugins/catalog", s.handleGetCatalog)
+
+	// Profile Portability APIs
+	mux.HandleFunc("GET /api/profile/export", s.handleExportProfile)
+	mux.HandleFunc("POST /api/profile/preview", s.handlePreviewProfile)
+	mux.HandleFunc("POST /api/profile/import", s.handleImportProfile)
+
 	// Audit Log APIs
 	mux.HandleFunc("GET /api/audit/logs", s.handleGetAuditLogs)
 	mux.HandleFunc("GET /api/audit/export", s.handleExportAuditLogs)

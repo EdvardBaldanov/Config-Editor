@@ -1,4 +1,20 @@
-import { Settings, FileItem, FileInfo, PluginItem, PendingInstall, ProcessInfo, AuditEvent, AuditQueryResponse, GuardIssue, GuardValidationResult } from '../types';
+import {
+  Settings,
+  FileItem,
+  FileInfo,
+  PluginItem,
+  PendingInstall,
+  ProcessInfo,
+  AuditEvent,
+  AuditQueryResponse,
+  GuardIssue,
+  GuardValidationResult,
+  PluginSource,
+  CatalogItem,
+  StudioProfile,
+  ProfilePreview,
+  ProfileImportResult,
+} from '../types';
 
 export class PreSaveGuardError extends Error {
   guard: GuardIssue;
@@ -433,5 +449,103 @@ export const api = {
   getAuditExportUrl(): string {
     const baseUrl = remoteEndpoint ? remoteEndpoint.replace(/\/$/, '') : '';
     return `${baseUrl}/api/audit/export?web=1`;
+  },
+
+  // Sources & Catalog APIs
+  async getSources(): Promise<PluginSource[]> {
+    const res = await webFetch('/api/plugins/sources');
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => ({}));
+    return data.sources || [];
+  },
+
+  async addSource(source: { name: string; url: string }): Promise<PluginSource> {
+    const res = await webFetch('/api/plugins/sources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(source),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to add plugin source');
+    }
+    return res.json();
+  },
+
+  async updateSource(id: string, update: Partial<PluginSource>): Promise<void> {
+    const res = await webFetch(`/api/plugins/sources/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(update),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update plugin source');
+    }
+  },
+
+  async deleteSource(id: string): Promise<void> {
+    const res = await webFetch(`/api/plugins/sources/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete plugin source');
+    }
+  },
+
+  async syncSources(): Promise<{ items: CatalogItem[]; sources: PluginSource[] }> {
+    const res = await webFetch('/api/plugins/sources/sync', {
+      method: 'POST',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to sync sources');
+    }
+    return res.json();
+  },
+
+  async getCatalog(): Promise<CatalogItem[]> {
+    const res = await webFetch('/api/plugins/catalog');
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => ({}));
+    return data.catalog || [];
+  },
+
+  // Profile Portability APIs
+  getProfileExportUrl(): string {
+    const baseUrl = remoteEndpoint ? remoteEndpoint.replace(/\/$/, '') : '';
+    return `${baseUrl}/api/profile/export?web=1`;
+  },
+
+  async previewProfile(fileContent: string): Promise<ProfilePreview> {
+    const res = await webFetch('/api/profile/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: fileContent,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Invalid profile JSON');
+    }
+    return res.json();
+  },
+
+  async importProfile(req: {
+    profile: StudioProfile;
+    applySettings: boolean;
+    importSources: boolean;
+    autoInstallPlugins: boolean;
+  }): Promise<ProfileImportResult> {
+    const res = await webFetch('/api/profile/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to import profile');
+    }
+    return res.json();
   },
 };

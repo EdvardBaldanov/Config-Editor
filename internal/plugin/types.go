@@ -9,6 +9,7 @@ type Manifest struct {
 	Version       string   `json:"version"`
 	Description   string   `json:"description"`
 	Author        string   `json:"author,omitempty"`
+	Homepage      string   `json:"homepage,omitempty"`
 	Icon          string   `json:"icon,omitempty"`          // Lucide icon name or svg
 	Entry         string   `json:"entry"`                   // e.g. "main.js"
 	CSS           string   `json:"css,omitempty"`           // optional "style.css"

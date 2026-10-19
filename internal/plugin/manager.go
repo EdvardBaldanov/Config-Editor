@@ -20,6 +20,7 @@ import (
 type Manager struct {
 	pluginsDir      string
 	runner          *Runner
+	sources         *SourcesManager
 	mu              sync.RWMutex
 	state           map[string]bool // pluginId -> enabled
 	pendingInstalls map[string]*PendingInstall
@@ -31,9 +32,15 @@ func NewManager(dataDir string, runner *Runner) (*Manager, error) {
 		return nil, fmt.Errorf("failed to create plugins directory: %w", err)
 	}
 
+	sm, err := NewSourcesManager(pluginsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize sources manager: %w", err)
+	}
+
 	m := &Manager{
 		pluginsDir:      pluginsDir,
 		runner:          runner,
+		sources:         sm,
 		state:           make(map[string]bool),
 		pendingInstalls: make(map[string]*PendingInstall),
 	}
@@ -41,6 +48,10 @@ func NewManager(dataDir string, runner *Runner) (*Manager, error) {
 	m.loadState()
 
 	return m, nil
+}
+
+func (m *Manager) Sources() *SourcesManager {
+	return m.sources
 }
 
 func (m *Manager) stateFilePath() string {

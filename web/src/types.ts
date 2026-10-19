@@ -188,3 +188,74 @@ export interface GuardValidationResult {
   isGuarded: boolean;
   issues: GuardIssue[];
 }
+
+export interface PluginSource {
+  id: string;
+  name: string;
+  url: string;
+  official: boolean;
+  enabled: boolean;
+  lastSync?: string;
+  pluginsCount: number;
+}
+
+export interface CatalogItem {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  license?: string;
+  homepage?: string;
+  downloadUrl: string;
+  sourceId: string;
+  official: boolean;
+  installed: boolean;
+  enabled: boolean;
+  icon?: string;
+  tags?: string[];
+}
+
+export interface StudioProfile {
+  $schema?: string;
+  version: string;
+  exportedAt: string;
+  app: {
+    appTitle: string;
+    baseColor: string;
+    accentColor: string;
+    themeMode: string;
+    language: string;
+    bottomDockMode?: string;
+    structureGuardEnabled?: boolean;
+    criticalPatterns?: string[];
+  };
+  sources: PluginSource[];
+  plugins: Array<{
+    id: string;
+    name: string;
+    version: string;
+    enabled: boolean;
+    sourceUrl?: string;
+  }>;
+}
+
+export interface ProfilePreview {
+  profile: StudioProfile;
+  settingsDiff: string[];
+  newSources: PluginSource[];
+  pluginsStatus: Array<{
+    id: string;
+    name: string;
+    version: string;
+    installed: boolean;
+    action: 'already_installed' | 'to_install' | 'will_enable';
+  }>;
+}
+
+export interface ProfileImportResult {
+  settingsApplied: boolean;
+  sourcesAdded: number;
+  pluginsQueued: string[];
+  errors?: string[];
+}

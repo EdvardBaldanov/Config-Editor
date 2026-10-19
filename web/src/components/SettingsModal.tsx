@@ -30,13 +30,16 @@ import {
   AlertOctagon,
   Info,
   Search,
+  Share2,
+  Plus,
 } from 'lucide-react';
-import { Settings, PluginItem, AuditEvent, PendingInstall } from '../types';
+import { Settings, PluginItem, AuditEvent, PendingInstall, PluginSource, ProfilePreview } from '../types';
 import { translations, Language } from '../utils/i18n';
 import { copyToClipboard } from '../utils/color';
 import { api } from '../services/api';
 import { pluginManager } from '../services/pluginLoader';
 import { PluginConsentModal } from './PluginConsentModal';
+import { ProfileImportModal } from './ProfileImportModal';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -96,7 +99,7 @@ const OFFICIAL_CATALOG: CatalogPlugin[] = [
   },
 ];
 
-type SettingsTab = 'general' | 'security' | 'plugins' | 'audit';
+type SettingsTab = 'general' | 'security' | 'plugins' | 'profile' | 'audit';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -166,13 +169,145 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  // Sources & Profile Portability
+  const [sources, setSources] = useState<PluginSource[]>([]);
+  const [isLoadingSources, setIsLoadingSources] = useState(false);
+  const [isSyncingSources, setIsSyncingSources] = useState(false);
+  const [showAddSourceForm, setShowAddSourceForm] = useState(false);
+  const [newSourceName, setNewSourceName] = useState('');
+  const [newSourceUrl, setNewSourceUrl] = useState('');
+  const [isAddingSource, setIsAddingSource] = useState(false);
+  const [profilePreview, setProfilePreview] = useState<ProfilePreview | null>(null);
+  const [isProfileImportModalOpen, setIsProfileImportModalOpen] = useState(false);
+  const [isImportingProfile, setIsImportingProfile] = useState(false);
+  const profileFileInputRef = useRef<HTMLInputElement>(null);
+
   const t = translations[language] || translations.ru;
 
   useEffect(() => {
     if (isOpen) {
       loadPlugins();
+      loadSources();
     }
   }, [isOpen]);
+
+  const loadSources = async () => {
+    setIsLoadingSources(true);
+    try {
+      const list = await api.getSources();
+      setSources(list);
+    } catch (e) {
+      console.error('Failed to load sources:', e);
+    } finally {
+      setIsLoadingSources(false);
+    }
+  };
+
+  const handleSyncSources = async () => {
+    setIsSyncingSources(true);
+    try {
+      const res = await api.syncSources();
+      setSources(res.sources);
+      await loadPlugins();
+      alert('Синхронизация каталогов успешно завершена!');
+    } catch (e: any) {
+      alert(`Ошибка синхронизации: ${e.message}`);
+    } finally {
+      setIsSyncingSources(false);
+    }
+  };
+
+  const handleAddSource = async () => {
+    if (!newSourceUrl.trim()) return;
+    setIsAddingSource(true);
+    try {
+      await api.addSource({ name: newSourceName.trim(), url: newSourceUrl.trim() });
+      setNewSourceName('');
+      setNewSourceUrl('');
+      setShowAddSourceForm(false);
+      await loadSources();
+    } catch (e: any) {
+      alert(`Ошибка добавления источника: ${e.message}`);
+    } finally {
+      setIsAddingSource(false);
+    }
+  };
+
+  const handleToggleSource = async (src: PluginSource) => {
+    try {
+      await api.updateSource(src.id, { enabled: !src.enabled });
+      await loadSources();
+    } catch (e: any) {
+      alert(`Ошибка изменения источника: ${e.message}`);
+    }
+  };
+
+  const handleDeleteSource = async (id: string) => {
+    if (!confirm('Вы уверены, что хотите удалить этот источник плагинов?')) return;
+    try {
+      await api.deleteSource(id);
+      await loadSources();
+    } catch (e: any) {
+      alert(`Ошибка удаления источника: ${e.message}`);
+    }
+  };
+
+  const handleProfileFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const preview = await api.previewProfile(text);
+      setProfilePreview(preview);
+      setIsProfileImportModalOpen(true);
+    } catch (err: any) {
+      alert(`Неверный файл профиля: ${err.message}`);
+    } finally {
+      if (profileFileInputRef.current) {
+        profileFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleConfirmImportProfile = async (options: {
+    applySettings: boolean;
+    importSources: boolean;
+    autoInstallPlugins: boolean;
+  }) => {
+    if (!profilePreview) return;
+    setIsImportingProfile(true);
+    try {
+      const res = await api.importProfile({
+        profile: profilePreview.profile,
+        ...options,
+      });
+
+      if (options.applySettings && profilePreview.profile.app) {
+        const app = profilePreview.profile.app;
+        if (app.appTitle) setTitle(app.appTitle);
+        if (app.baseColor) setBaseColor(app.baseColor);
+        if (app.accentColor) setAccentColor(app.accentColor);
+        if (app.themeMode && (app.themeMode === 'dark' || app.themeMode === 'light')) {
+          setThemeMode(app.themeMode);
+        }
+        if (app.language) setLanguage(app.language as Language);
+        if (app.bottomDockMode) setBottomDockMode(app.bottomDockMode as any);
+      }
+
+      await loadSources();
+      await loadPlugins();
+      setIsProfileImportModalOpen(false);
+      setProfilePreview(null);
+
+      alert(
+        `Профиль успешно применен! Источников добавлено: ${res.sourcesAdded}, плагинов в очереди: ${res.pluginsQueued.length}`
+      );
+    } catch (err: any) {
+      alert(`Ошибка импорта профиля: ${err.message}`);
+    } finally {
+      setIsImportingProfile(false);
+    }
+  };
 
   const loadPlugins = async () => {
     setIsLoadingPlugins(true);
@@ -477,6 +612,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {pluginsList.length}
                 </span>
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('profile');
+                loadSources();
+              }}
+              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all ${
+                activeTab === 'profile'
+                  ? 'bg-base-surface text-accent shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <Share2 size={13} />
+              <span>Профиль и Источники</span>
             </button>
 
             <button
@@ -1250,7 +1401,217 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         )}
 
-        {/* Tab 4: Core Audit Log */}
+        {/* Tab 4: Profile Portability & Sources */}
+        {activeTab === 'profile' && (
+          <div className="p-6 space-y-6 overflow-y-auto flex-1">
+            {/* Card 1: 1-Click Profile Portability */}
+            <div className="p-5 rounded-2xl bg-gray-100/60 dark:bg-black/20 border border-base-border space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-accent/15 text-accent flex items-center justify-center">
+                  <Share2 size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                    Переносимость профиля (1-Click Profile Portability)
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Экспортируйте ваши темы, правила Deep Guard и список плагинов для мгновенного развертывания на любом компьютере или сервере.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <a
+                  href={api.getProfileExportUrl()}
+                  download="config-studio-profile.json"
+                  className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-semibold bg-accent text-gray-900 hover:opacity-90 shadow-sm transition-all cursor-pointer"
+                >
+                  <Download size={14} />
+                  <span>Экспорт профиля (.json)</span>
+                </a>
+
+                <input
+                  type="file"
+                  ref={profileFileInputRef}
+                  onChange={handleProfileFileSelect}
+                  accept=".json"
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => profileFileInputRef.current?.click()}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-200/80 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 border border-base-border transition-all cursor-pointer"
+                >
+                  <Upload size={14} />
+                  <span>Импорт профиля (.json)</span>
+                </button>
+
+                <span className="text-[11px] text-teal-400/90 font-medium flex items-center gap-1.5 ml-auto">
+                  <Sparkles size={12} />
+                  Пароли и ключи исключены по умолчанию
+                </span>
+              </div>
+            </div>
+
+            {/* Card 2: Trusted Plugin Sources & Repositories */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Globe size={16} className="text-accent" />
+                    <span>Доверенные каталоги плагинов (Plugin Sources)</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Репозитории и реестры, из которых Config Studio подтягивает список официальных и сторонних плагинов.
+                  </p>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={handleSyncSources}
+                    disabled={isSyncingSources}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-gray-200/80 dark:bg-white/5 hover:bg-gray-300 dark:hover:bg-white/10 border border-base-border text-gray-700 dark:text-gray-300 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw size={12} className={isSyncingSources ? 'animate-spin' : ''} />
+                    <span>{isSyncingSources ? 'Синхронизация...' : 'Синхронизировать'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddSourceForm(!showAddSourceForm)}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-accent text-gray-900 hover:opacity-90 shadow-2xs transition-all cursor-pointer"
+                  >
+                    <Plus size={12} />
+                    <span>Добавить источник</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Add Source Inline Form */}
+              {showAddSourceForm && (
+                <div className="p-4 rounded-2xl border border-accent/40 bg-accent/5 space-y-3 animate-fade-in">
+                  <h4 className="text-xs font-bold text-gray-900 dark:text-white">
+                    Подключение нового каталога плагинов
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                        Название каталога
+                      </label>
+                      <input
+                        type="text"
+                        value={newSourceName}
+                        onChange={(e) => setNewSourceName(e.target.value)}
+                        placeholder="Например: Internal DevOps Registry"
+                        className="w-full px-3 py-1.5 rounded-xl border border-base-border bg-base-surface text-xs text-gray-900 dark:text-white focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                        URL к registry.json
+                      </label>
+                      <input
+                        type="text"
+                        value={newSourceUrl}
+                        onChange={(e) => setNewSourceUrl(e.target.value)}
+                        placeholder="https://raw.githubusercontent.com/.../registry.json"
+                        className="w-full px-3 py-1.5 rounded-xl border border-base-border bg-base-surface text-xs text-gray-900 dark:text-white focus:outline-none focus:border-accent font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end space-x-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddSourceForm(false)}
+                      className="px-3 py-1.5 rounded-xl text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddSource}
+                      disabled={!newSourceUrl.trim() || isAddingSource}
+                      className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-accent text-gray-900 hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isAddingSource ? 'Добавление...' : 'Сохранить источник'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Sources Table / List */}
+              <div className="space-y-2">
+                {isLoadingSources ? (
+                  <div className="py-8 text-center text-xs text-gray-400">
+                    Загрузка списка источников...
+                  </div>
+                ) : sources.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-gray-400">
+                    Нет подключенных источников
+                  </div>
+                ) : (
+                  sources.map((s) => (
+                    <div
+                      key={s.id}
+                      className="p-3.5 rounded-2xl border border-base-border bg-gray-50 dark:bg-black/20 flex items-center justify-between gap-4"
+                    >
+                      <div className="flex items-center space-x-3 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={s.enabled}
+                          onChange={() => handleToggleSource(s)}
+                          className="w-4 h-4 text-accent rounded accent-teal-500 cursor-pointer"
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                              {s.name}
+                            </span>
+                            {s.official ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-400 border border-teal-500/40">
+                                Официальный
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/40">
+                                Сообщество
+                              </span>
+                            )}
+                            <span className="text-[11px] text-gray-400 font-mono">
+                              ({s.pluginsCount} плагинов)
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 font-mono truncate mt-0.5 max-w-xl">
+                            {s.url}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 shrink-0">
+                        {s.lastSync && (
+                          <span className="text-[10px] text-gray-400 font-mono hidden md:inline">
+                            Синхр: {new Date(s.lastSync).toLocaleTimeString('ru-RU')}
+                          </span>
+                        )}
+                        {!s.official && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSource(s.id)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                            title="Удалить источник"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 5: Core Audit Log */}
         {activeTab === 'audit' && (
           <div className="p-6 space-y-4 overflow-y-auto flex-1">
             {/* Header Description */}
@@ -1503,6 +1864,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         onClose={handleCloseConsent}
         onConfirm={handleConfirmConsent}
         isConfirming={isConfirmingInstall}
+      />
+
+      <ProfileImportModal
+        isOpen={isProfileImportModalOpen}
+        preview={profilePreview}
+        isImporting={isImportingProfile}
+        onClose={() => {
+          setIsProfileImportModalOpen(false);
+          setProfilePreview(null);
+        }}
+        onConfirm={handleConfirmImportProfile}
       />
     </div>
   );

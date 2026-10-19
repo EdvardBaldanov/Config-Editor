@@ -51,7 +51,7 @@ export const App: React.FC = () => {
 
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [settingsTab, setSettingsTab] = useState<'general' | 'security' | 'plugins' | 'audit'>('general');
+  const [settingsTab, setSettingsTab] = useState<'general' | 'security' | 'plugins' | 'profile' | 'audit'>('general');
   const [isPropertiesOpen, setIsPropertiesOpen] = useState<boolean>(false);
   const [preSaveGuardIssue, setPreSaveGuardIssue] = useState<GuardIssue | null>(null);
   const [isPreSaveGuardOpen, setIsPreSaveGuardOpen] = useState<boolean>(false);
