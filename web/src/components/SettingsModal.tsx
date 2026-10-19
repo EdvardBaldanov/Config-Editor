@@ -38,6 +38,7 @@ import {
   Unlock,
   Edit3,
   CheckCircle2,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Settings,
@@ -1118,29 +1119,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Globe className="w-4 h-4 text-accent" />
                 <span>{t.language}</span>
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {availableLanguages.map((l) => (
-                  <button
-                    key={l.code}
-                    type="button"
-                    onClick={() => setLanguage(l.code)}
-                    className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between space-x-2 transition-all cursor-pointer ${
-                      language === l.code
-                        ? 'border-accent bg-accent/15 text-accent shadow-sm'
-                        : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <span className="flex items-center space-x-1.5 truncate">
-                      <span>{l.flag}</span>
-                      <span className="truncate">{l.name}</span>
-                    </span>
-                    {l.isPlugin && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-400 font-mono shrink-0">
-                        Pack
-                      </span>
-                    )}
-                  </button>
-                ))}
+              <div className="relative">
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as Language)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-black/30 border border-base-border hover:border-gray-400 dark:hover:border-gray-500 rounded-xl text-xs font-medium text-gray-900 dark:text-white focus:outline-none focus:border-accent cursor-pointer transition appearance-none pr-10"
+                >
+                  {availableLanguages.map((l) => (
+                    <option
+                      key={l.code}
+                      value={l.code}
+                      className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white py-1.5"
+                    >
+                      {l.flag} {l.name} {l.isPlugin ? ' (Language Pack)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
               </div>
             </div>
 
