@@ -98,8 +98,9 @@ func (s *Server) handleImportProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := plugin.ProfileImportResult{
-		PluginsQueued: []string{},
-		Errors:        []string{},
+		PluginsQueued:  []string{},
+		PluginsEnabled: []string{},
+		Errors:         []string{},
 	}
 
 	if req.Profile.Sources == nil {
@@ -162,7 +163,7 @@ func (s *Server) handleImportProfile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 3. Auto-install plugins if requested
+	// 3. Auto-install and enable plugins if requested
 	if req.AutoInstallPlugins {
 		installed, _ := s.plugins.ListPlugins()
 		installedMap := make(map[string]bool)
@@ -170,17 +171,34 @@ func (s *Server) handleImportProfile(w http.ResponseWriter, r *http.Request) {
 			installedMap[p.Manifest.ID] = true
 		}
 
+		// Look up catalog items to resolve download URLs for missing plugins
+		catalogItems := s.plugins.Sources().GetCatalog(installed)
+		catalogMap := make(map[string]plugin.CatalogItem)
+		for _, it := range catalogItems {
+			catalogMap[it.ID] = it
+		}
+
 		for _, p := range req.Profile.Plugins {
 			if installedMap[p.ID] {
 				// Ensure enabled state matches profile
 				_ = s.plugins.TogglePlugin(p.ID, p.Enabled)
+				if p.Enabled {
+					result.PluginsEnabled = append(result.PluginsEnabled, p.ID)
+				}
 				continue
 			}
 
-			// If source URL is available, auto-install from URL
-			if p.SourceURL != "" && (strings.HasPrefix(p.SourceURL, "http://") || strings.HasPrefix(p.SourceURL, "https://")) {
-				if strings.HasSuffix(p.SourceURL, ".zip") {
-					if _, err := s.plugins.InstallFromURL(p.SourceURL); err == nil {
+			// If download URL is known from profile or from catalog
+			downloadURL := p.SourceURL
+			if downloadURL == "" || !strings.HasSuffix(strings.ToLower(downloadURL), ".zip") {
+				if catItem, ok := catalogMap[p.ID]; ok && catItem.DownloadURL != "" {
+					downloadURL = catItem.DownloadURL
+				}
+			}
+
+			if downloadURL != "" && (strings.HasPrefix(downloadURL, "http://") || strings.HasPrefix(downloadURL, "https://")) {
+				if strings.HasSuffix(strings.ToLower(downloadURL), ".zip") {
+					if _, err := s.plugins.InstallFromURL(downloadURL); err == nil {
 						result.PluginsQueued = append(result.PluginsQueued, p.ID)
 					} else {
 						result.Errors = append(result.Errors, fmt.Sprintf("failed to install plugin %s: %v", p.ID, err))

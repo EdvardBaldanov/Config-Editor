@@ -642,6 +642,10 @@ export const App: React.FC = () => {
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
         onSaveSettings={handleSaveSettings}
+        onReloadSettings={loadSettings}
+        onReloadPlugins={async () => {
+          await pluginManager.loadPlugins();
+        }}
         onUploadIcon={handleUploadIcon}
         initialTab={settingsTab}
       />

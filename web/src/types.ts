@@ -257,5 +257,6 @@ export interface ProfileImportResult {
   settingsApplied: boolean;
   sourcesAdded: number;
   pluginsQueued: string[];
+  pluginsEnabled?: string[];
   errors?: string[];
 }

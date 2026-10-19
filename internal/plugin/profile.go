@@ -62,6 +62,7 @@ type ProfileImportResult struct {
 	SettingsApplied bool     `json:"settingsApplied"`
 	SourcesAdded    int      `json:"sourcesAdded"`
 	PluginsQueued   []string `json:"pluginsQueued"`
+	PluginsEnabled  []string `json:"pluginsEnabled"`
 	Errors          []string `json:"errors,omitempty"`
 }
 

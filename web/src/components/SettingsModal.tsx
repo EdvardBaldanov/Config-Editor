@@ -46,6 +46,8 @@ interface SettingsModalProps {
   onClose: () => void;
   settings: Settings;
   onSaveSettings: (newSettings: Partial<Settings>) => Promise<void>;
+  onReloadSettings?: () => Promise<void>;
+  onReloadPlugins?: () => Promise<void>;
   onUploadIcon: (file: File) => Promise<void>;
   initialTab?: SettingsTab;
 }
@@ -106,6 +108,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   settings,
   onSaveSettings,
+  onReloadSettings,
+  onReloadPlugins,
   onUploadIcon,
   initialTab = 'general',
 }) => {
@@ -126,6 +130,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [bottomDockMode, setBottomDockMode] = useState<'auto' | 'always' | 'hidden'>(
     settings.bottomDockMode || 'auto'
   );
+
+  // Sync local modal state when settings prop updates (e.g. after profile import)
+  useEffect(() => {
+    setTitle(settings.appTitle);
+    setBaseColor(settings.baseColor);
+    setAccentColor(settings.accentColor);
+    setThemeMode(settings.themeMode);
+    setLanguage(settings.language || 'ru');
+    setBottomDockMode(settings.bottomDockMode || 'auto');
+    setAuthEnabled(settings.authEnabled || false);
+    setAuthUser(settings.authUser || 'admin');
+    setApiEnabled(settings.apiEnabled || false);
+    setApiKey(settings.apiKey || '');
+    setPluginExecUnrestricted(settings.pluginExecUnrestricted || false);
+    setStructureGuardEnabled(settings.structureGuardEnabled !== false);
+    setCriticalPatterns((settings.criticalPatterns || []).join('\n'));
+  }, [settings]);
 
   // Security Settings
   const [authEnabled, setAuthEnabled] = useState(settings.authEnabled || false);
@@ -282,6 +303,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         ...options,
       });
 
+      // 1. Reload settings in App.tsx immediately so theme and styles update live
+      if (options.applySettings && onReloadSettings) {
+        await onReloadSettings();
+      }
+
       if (options.applySettings && profilePreview.profile.app) {
         const app = profilePreview.profile.app;
         if (app.appTitle) setTitle(app.appTitle);
@@ -294,16 +320,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         if (app.bottomDockMode) setBottomDockMode(app.bottomDockMode as any);
       }
 
+      // 2. Reload plugins and sources
       await loadSources();
       await loadPlugins();
+      if (options.autoInstallPlugins && onReloadPlugins) {
+        await onReloadPlugins();
+      }
+
       setIsProfileImportModalOpen(false);
       setProfilePreview(null);
 
+      // 3. Clear and informative user feedback
       const sourcesAdded = res?.sourcesAdded ?? 0;
       const queuedCount = res?.pluginsQueued ? res.pluginsQueued.length : 0;
-      alert(
-        `Профиль успешно применен! Источников добавлено: ${sourcesAdded}, плагинов в очереди: ${queuedCount}`
-      );
+      const enabledCount = res?.pluginsEnabled ? res.pluginsEnabled.length : 0;
+
+      const details: string[] = [];
+      if (res?.settingsApplied) {
+        details.push('🎨 Тема и параметры интерфейса успешно применены');
+      }
+      if (sourcesAdded > 0) {
+        details.push(`🌐 Добавлено новых источников: +${sourcesAdded}`);
+      }
+      if (enabledCount > 0) {
+        details.push(`⚡ Активировано плагинов: ${enabledCount}`);
+      }
+      if (queuedCount > 0) {
+        details.push(`📦 Установлено плагинов: +${queuedCount}`);
+      }
+
+      if (details.length > 0) {
+        alert(`Профиль успешно применен!\n\n• ${details.join('\n• ')}`);
+      } else {
+        alert('Профиль проверен: все настройки, источники и плагины уже соответствуют профилю.');
+      }
     } catch (err: any) {
       alert(`Ошибка импорта профиля: ${err.message}`);
     } finally {
