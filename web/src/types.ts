@@ -280,3 +280,28 @@ export interface ProfileImportResult {
   pluginsEnabled?: string[];
   errors?: string[];
 }
+
+export type ContextMenuGroup = 'open' | 'clipboard' | 'tools' | 'edit' | 'danger';
+
+export interface ContextMenuTarget {
+  path: string;
+  name: string;
+  isDir: boolean;
+  extension: string;
+  currentDir: string;
+}
+
+export interface ContextMenuItem {
+  id: string;
+  pluginId?: string;
+  label: string;
+  icon?: string;
+  group?: ContextMenuGroup;
+  order?: number;
+  shortcut?: string;
+  targetType?: 'file' | 'folder' | 'empty' | 'any';
+  fileMatches?: string[];
+  onClick: (target: ContextMenuTarget) => void | Promise<void>;
+  isVisible?: (target: ContextMenuTarget) => boolean;
+  isEnabled?: (target: ContextMenuTarget) => boolean;
+}

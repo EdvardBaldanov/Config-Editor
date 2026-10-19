@@ -244,6 +244,17 @@ const builtInTranslations = {
     dockMaximizeTooltip: 'Во весь экран',
     dockRestoreTooltip: 'Свернуть из полного экрана',
     dockCloseTooltip: 'Свернуть нижний док',
+
+    // Context Menu
+    ctxOpen: 'Открыть',
+    ctxOpenFolder: 'Открыть папку',
+    ctxCopyPath: 'Копировать относительный путь',
+    ctxCopyPathSuccess: 'Путь скопирован в буфер',
+    ctxNewFileHere: 'Новый файл...',
+    ctxNewFolderHere: 'Новая папка...',
+    ctxRename: 'Переименовать',
+    ctxDelete: 'Удалить',
+    ctxRefresh: 'Обновить',
   },
   en: {
     appTitle: 'Application Title',
@@ -471,6 +482,17 @@ const builtInTranslations = {
     dockMaximizeTooltip: 'Maximize',
     dockRestoreTooltip: 'Restore size',
     dockCloseTooltip: 'Collapse dock',
+
+    // Context Menu
+    ctxOpen: 'Open',
+    ctxOpenFolder: 'Open Folder',
+    ctxCopyPath: 'Copy Relative Path',
+    ctxCopyPathSuccess: 'Path copied to clipboard',
+    ctxNewFileHere: 'New File...',
+    ctxNewFolderHere: 'New Folder...',
+    ctxRename: 'Rename',
+    ctxDelete: 'Delete',
+    ctxRefresh: 'Refresh',
   },
 };
 

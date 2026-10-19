@@ -7,7 +7,10 @@ import {
   HeaderItemDef,
   ProcessInfo,
   OutlineNode,
+  ContextMenuItem,
+  ContextMenuTarget,
 } from '../types';
+import { contextMenuRegistry } from './contextMenuRegistry';
 import {
   registerPluginLocales,
   unregisterPluginLocales,
@@ -425,6 +428,17 @@ class PluginLoader {
           return Array.from(this.registeredServices.keys());
         },
       },
+
+      registerContextMenu: (item: ContextMenuItem) => {
+        return contextMenuRegistry.register(item);
+      },
+
+      contextMenu: {
+        register: (item: ContextMenuItem) => contextMenuRegistry.register(item),
+        unregister: (id: string) => contextMenuRegistry.unregister(id),
+        getItemsForTarget: (target: ContextMenuTarget) =>
+          contextMenuRegistry.getItemsForTarget(target),
+      },
     };
   }
 
@@ -597,6 +611,7 @@ class PluginLoader {
     }
 
     this.loadedPluginIds.delete(id);
+    contextMenuRegistry.unregisterByPlugin(id);
     this.toolbarButtons = this.toolbarButtons.filter((b) => b.pluginId !== id);
     this.splitPanels = this.splitPanels.filter((p) => p.pluginId !== id);
     this.bottomPanels = this.bottomPanels.filter((p) => p.pluginId !== id);

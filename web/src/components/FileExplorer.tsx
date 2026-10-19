@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Folder,
   FolderPlus,
@@ -11,8 +11,10 @@ import {
   UploadCloud,
   CornerLeftUp,
 } from 'lucide-react';
-import { FileItem, Settings } from '../types';
+import { FileItem, Settings, ContextMenuItem, ContextMenuTarget } from '../types';
 import { translations } from '../utils/i18n';
+import { ContextMenu } from './ContextMenu';
+import { contextMenuRegistry } from '../services/contextMenuRegistry';
 
 interface FileExplorerProps {
   items: FileItem[];
@@ -42,10 +44,184 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   onUploadFile,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [contextMenuState, setContextMenuState] = useState<{
+    x: number;
+    y: number;
+    target: ContextMenuTarget;
+  } | null>(null);
+  const [, setRegistryTick] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const t = translations[settings.language] || translations.ru;
   const safeItems = items || [];
+
+  useEffect(() => {
+    return contextMenuRegistry.subscribe(() => {
+      setRegistryTick((prev) => prev + 1);
+    });
+  }, []);
+
+  const getContextMenuItems = (target: ContextMenuTarget): ContextMenuItem[] => {
+    const coreItems: ContextMenuItem[] = [];
+
+    if (target.name) {
+      // 1. Group 'open'
+      if (!target.isDir) {
+        coreItems.push({
+          id: 'core.open',
+          label: t.ctxOpen || 'Открыть',
+          icon: 'FileCode',
+          group: 'open',
+          order: 10,
+          onClick: () => onSelectFile(target.path),
+        });
+      } else {
+        coreItems.push({
+          id: 'core.open-folder',
+          label: t.ctxOpenFolder || 'Открыть папку',
+          icon: 'Folder',
+          group: 'open',
+          order: 10,
+          onClick: () => onNavigateDir(target.path),
+        });
+      }
+
+      // 2. Group 'clipboard'
+      coreItems.push({
+        id: 'core.copy-path',
+        label: t.ctxCopyPath || 'Копировать относительный путь',
+        icon: 'Copy',
+        group: 'clipboard',
+        order: 10,
+        shortcut: 'Ctrl+C',
+        onClick: async () => {
+          try {
+            await navigator.clipboard.writeText(target.path);
+          } catch {
+            const ta = document.createElement('textarea');
+            ta.value = target.path;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+          }
+        },
+      });
+
+      // 3. Group 'edit' (New item inside this folder if target is directory)
+      if (target.isDir) {
+        coreItems.push({
+          id: 'core.new-file-here',
+          label: t.ctxNewFileHere || 'Новый файл...',
+          icon: 'FilePlus',
+          group: 'edit',
+          order: 10,
+          onClick: () => {
+            const name = prompt(t.enterFileName);
+            if (!name || !name.trim()) return;
+            const fullPath = `${target.path}/${name.trim()}`;
+            onCreateItem(fullPath, false);
+          },
+        });
+        coreItems.push({
+          id: 'core.new-folder-here',
+          label: t.ctxNewFolderHere || 'Новая папка...',
+          icon: 'FolderPlus',
+          group: 'edit',
+          order: 20,
+          onClick: () => {
+            const name = prompt(t.enterFolderName);
+            if (!name || !name.trim()) return;
+            const fullPath = `${target.path}/${name.trim()}`;
+            onCreateItem(fullPath, true);
+          },
+        });
+      }
+
+      // Rename
+      coreItems.push({
+        id: 'core.rename',
+        label: t.ctxRename || 'Переименовать',
+        icon: 'Edit2',
+        group: 'edit',
+        order: 30,
+        shortcut: 'F2',
+        onClick: () => {
+          const newName = prompt(t.enterNewName, target.name);
+          if (!newName || !newName.trim() || newName.trim() === target.name) return;
+          const dir = target.path.includes('/')
+            ? target.path.substring(0, target.path.lastIndexOf('/'))
+            : '';
+          const newPath = dir ? `${dir}/${newName.trim()}` : newName.trim();
+          onRenameItem(target.path, newPath);
+        },
+      });
+
+      // 4. Group 'danger' (Delete)
+      coreItems.push({
+        id: 'core.delete',
+        label: t.ctxDelete || 'Удалить',
+        icon: 'Trash2',
+        group: 'danger',
+        order: 90,
+        shortcut: 'Del',
+        onClick: () => {
+          const msg = t.deleteConfirm.replace('{name}', target.name);
+          if (confirm(msg)) {
+            onDeleteItem(target.path);
+          }
+        },
+      });
+    } else {
+      // Empty explorer background actions
+      coreItems.push({
+        id: 'core.new-file',
+        label: t.ctxNewFileHere || 'Новый файл...',
+        icon: 'FilePlus',
+        group: 'edit',
+        order: 10,
+        onClick: () => handleCreatePrompt(false),
+      });
+      coreItems.push({
+        id: 'core.new-folder',
+        label: t.ctxNewFolderHere || 'Новая папка...',
+        icon: 'FolderPlus',
+        group: 'edit',
+        order: 20,
+        onClick: () => handleCreatePrompt(true),
+      });
+      coreItems.push({
+        id: 'core.refresh',
+        label: t.ctxRefresh || 'Обновить',
+        icon: 'RefreshCw',
+        group: 'tools',
+        order: 10,
+        onClick: onRefresh,
+      });
+    }
+
+    // Get plugin-registered items for this target
+    const pluginItems = contextMenuRegistry.getItemsForTarget(target);
+
+    // Combine and sort
+    const groupOrder: Record<string, number> = {
+      open: 1,
+      clipboard: 2,
+      tools: 3,
+      edit: 4,
+      danger: 5,
+    };
+
+    const allItems = [...coreItems, ...pluginItems];
+    return allItems.sort((a, b) => {
+      const gA = groupOrder[a.group || 'tools'] ?? 99;
+      const gB = groupOrder[b.group || 'tools'] ?? 99;
+      if (gA !== gB) return gA - gB;
+      const oA = a.order ?? 50;
+      const oB = b.order ?? 50;
+      return oA - oB;
+    });
+  };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -161,7 +337,23 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       )}
 
       {/* Files List */}
-      <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
+      <div
+        className="flex-1 overflow-y-auto p-1.5 space-y-0.5"
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setContextMenuState({
+            x: e.clientX,
+            y: e.clientY,
+            target: {
+              path: currentDir,
+              name: '',
+              isDir: true,
+              extension: '',
+              currentDir,
+            },
+          });
+        }}
+      >
         {safeItems.length === 0 ? (
           <div className="text-xs text-gray-400 dark:text-gray-500 text-center py-8">
             <Folder className="w-8 h-8 mx-auto mb-2 opacity-30 text-accent" />
@@ -179,6 +371,21 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   } else {
                     onSelectFile(item.path);
                   }
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setContextMenuState({
+                    x: e.clientX,
+                    y: e.clientY,
+                    target: {
+                      path: item.path,
+                      name: item.name,
+                      isDir: item.isDir,
+                      extension: item.extension || '',
+                      currentDir,
+                    },
+                  });
                 }}
                 className={`group flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs cursor-pointer transition-colors ${
                   isSelected
@@ -246,6 +453,17 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           </p>
         </div>
       </div>
+
+      {/* Context Menu Modal / Popup */}
+      {contextMenuState && (
+        <ContextMenu
+          x={contextMenuState.x}
+          y={contextMenuState.y}
+          items={getContextMenuItems(contextMenuState.target)}
+          target={contextMenuState.target}
+          onClose={() => setContextMenuState(null)}
+        />
+      )}
     </aside>
   );
 };
