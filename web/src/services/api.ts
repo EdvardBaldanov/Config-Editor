@@ -395,8 +395,17 @@ export const api = {
     return res.json();
   },
 
+  async exportAuditLogs(): Promise<Blob> {
+    const res = await webFetch('/api/audit/export');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to export audit logs');
+    }
+    return res.blob();
+  },
+
   getAuditExportUrl(): string {
     const baseUrl = remoteEndpoint ? remoteEndpoint.replace(/\/$/, '') : '';
-    return `${baseUrl}/api/audit/export`;
+    return `${baseUrl}/api/audit/export?web=1`;
   },
 };

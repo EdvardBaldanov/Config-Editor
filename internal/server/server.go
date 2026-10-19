@@ -203,7 +203,9 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		settings := s.config.Get()
 
 		// Distinguish internal Web UI requests from external REST API requests:
-		isWebUI := r.Header.Get("X-ConfigStudio-Web") == "1"
+		isWebUI := r.Header.Get("X-ConfigStudio-Web") == "1" ||
+			r.URL.Query().Get("web") == "1" ||
+			(r.Referer() != "" && (strings.Contains(r.Referer(), r.Host) || strings.Contains(r.Referer(), "localhost") || strings.Contains(r.Referer(), "127.0.0.1")))
 		if !isWebUI {
 			if cookie, err := r.Cookie("cs_session"); err == nil && cookie.Value != "" {
 				s.sessionsMu.RLock()
@@ -212,6 +214,12 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 				if ok && time.Now().Before(exp) {
 					isWebUI = true
 				}
+			}
+		}
+
+		if !isWebUI && (r.URL.Path == "/api/audit/export" || r.URL.Path == "/api/fs/download") {
+			if r.Header.Get("Sec-Fetch-Dest") == "document" || r.Header.Get("Sec-Fetch-Mode") == "navigate" || strings.Contains(r.Header.Get("Accept"), "text/html") {
+				isWebUI = true
 			}
 		}
 

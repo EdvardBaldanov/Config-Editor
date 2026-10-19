@@ -148,6 +148,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [auditSeverity, setAuditSeverity] = useState<string>('');
   const [auditSearch, setAuditSearch] = useState<string>('');
   const [expandedAuditId, setExpandedAuditId] = useState<string | null>(null);
+  const [isExportingAudit, setIsExportingAudit] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
@@ -295,6 +296,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const handleExportAuditLogs = async () => {
+    setIsExportingAudit(true);
+    try {
+      const blob = await api.exportAuditLogs();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `config-studio-audit-${new Date().toISOString().slice(0, 10)}.jsonl`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Ошибка экспорта логов: ${err.message}`);
+    } finally {
+      setIsExportingAudit(false);
+    }
+  };
+
   useEffect(() => {
     if (isOpen && activeTab === 'audit') {
       loadAuditLogs();
@@ -370,8 +390,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in select-none">
-      <div className="w-full max-w-xl bg-base-surface border border-base-border rounded-3xl shadow-2xl overflow-hidden flex flex-col text-gray-900 dark:text-gray-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-[50px] bg-black/75 backdrop-blur-sm animate-fade-in select-none">
+      <div className="w-full max-w-[1400px] h-full max-h-[calc(100vh-100px)] bg-base-surface border border-base-border rounded-3xl shadow-2xl overflow-hidden flex flex-col text-gray-900 dark:text-gray-100">
         {/* Header & Tabs */}
         <div className="px-6 pt-5 pb-3 border-b border-base-border bg-base/50">
           <div className="flex items-center justify-between mb-4">
@@ -460,7 +480,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Tab 1: General & Appearance */}
         {activeTab === 'general' && (
-          <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+          <div className="p-6 space-y-6 overflow-y-auto flex-1">
             {/* App Title */}
             <div>
               <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
@@ -675,7 +695,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Tab 2: Security & API */}
         {activeTab === 'security' && (
-          <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+          <div className="p-6 space-y-6 overflow-y-auto flex-1">
             {/* Direct Authentication */}
             <div className="p-4 rounded-2xl bg-gray-100/60 dark:bg-black/20 border border-base-border space-y-3">
               <div className="flex items-center justify-between">
@@ -795,7 +815,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Tab 3: Plugins System */}
         {activeTab === 'plugins' && (
-          <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+          <div className="p-6 space-y-6 overflow-y-auto flex-1">
             {/* Host Command Execution Security ("I know what I'm doing" mode) */}
             <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
               <div className="flex items-center justify-between">
@@ -1129,7 +1149,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Tab 4: Core Audit Log */}
         {activeTab === 'audit' && (
-          <div className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
+          <div className="p-6 space-y-4 overflow-y-auto flex-1">
             {/* Header Description */}
             <div className="flex items-start justify-between">
               <div>
@@ -1143,14 +1163,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Export button */}
-              <a
-                href={api.getAuditExportUrl()}
-                download="config-studio-audit.jsonl"
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-700 dark:text-gray-200 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 transition shrink-0"
+              <button
+                type="button"
+                onClick={handleExportAuditLogs}
+                disabled={isExportingAudit}
+                title={t.auditExport}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-700 dark:text-gray-200 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 transition shrink-0 cursor-pointer disabled:opacity-50"
               >
-                <Download size={13} className="text-accent" />
-                <span>{t.auditExport}</span>
-              </a>
+                <Download size={13} className={`text-accent ${isExportingAudit ? 'animate-bounce' : ''}`} />
+                <span>{isExportingAudit ? 'Экспорт...' : t.auditExport}</span>
+              </button>
             </div>
 
             {/* Filter and Search Bar */}
