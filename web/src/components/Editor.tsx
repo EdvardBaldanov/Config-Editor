@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import MonacoEditor, { OnMount } from '@monaco-editor/react';
 import { OpenFile, Settings, OutlineNode, ToolbarButtonDef, GuardValidationResult } from '../types';
-import { X, FileCode, Hash, Play, Globe, Server, Terminal, Sparkles, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { X, FileCode, Hash, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { translations } from '../utils/i18n';
 import { getLuminance } from '../utils/color';
 import { pluginManager } from '../services/pluginLoader';
+import { ActionToolbar } from './ActionToolbar';
 
 interface EditorProps {
   tabs: OpenFile[];
@@ -17,6 +18,7 @@ interface EditorProps {
   onChangeContent: (val: string) => void;
   onSave: () => void;
   onSelectLine?: (line: number, shouldFocus?: boolean) => void;
+  onCursorChange?: (line: number, col: number) => void;
   editorRef: React.MutableRefObject<any>;
   guardResult?: GuardValidationResult | null;
   onOpenGuardModal?: () => void;
@@ -35,6 +37,7 @@ export const Editor: React.FC<EditorProps> = ({
   onChangeContent,
   onSave,
   onSelectLine,
+  onCursorChange,
   editorRef,
 }) => {
   const monacoInstanceRef = useRef<any>(null);
@@ -110,6 +113,13 @@ export const Editor: React.FC<EditorProps> = ({
     // Add Ctrl+S command
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       onSave();
+    });
+
+    // Listen to cursor position changes
+    editor.onDidChangeCursorPosition((e) => {
+      if (onCursorChange) {
+        onCursorChange(e.position.lineNumber, e.position.column);
+      }
     });
   };
 
@@ -212,11 +222,9 @@ export const Editor: React.FC<EditorProps> = ({
     );
   }
 
-  const visiblePluginButtons = pluginButtons.filter((btn) => !btn.visible || btn.visible());
-
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-base">
-      {/* Multi-Tab Bar & Plugin Action Buttons */}
+      {/* Multi-Tab Bar & Action Toolbar */}
       <div className="h-10 bg-base-surface border-b border-base-border flex items-center justify-between px-2 select-none flex-shrink-0">
         <div className="flex items-center space-x-1 overflow-x-auto">
           {tabs.map((tab) => {
@@ -257,7 +265,7 @@ export const Editor: React.FC<EditorProps> = ({
           })}
         </div>
 
-        {/* Right Action Area: Guard Pill & Plugin Buttons */}
+        {/* Right Action Area: Guard Pill & 1-Click Action Toolbar */}
         <div className="flex items-center space-x-1.5 pl-2 shrink-0">
           {/* Structure Guard Status Pill */}
           {currentFile && guardResult?.isGuarded && (
@@ -282,29 +290,12 @@ export const Editor: React.FC<EditorProps> = ({
             )
           )}
 
-          {/* Plugin Action Buttons (e.g. Live Preview) */}
-          {visiblePluginButtons.map((btn) => {
-            const renderIcon = () => {
-              if (btn.icon === 'globe') return <Globe size={12} />;
-              if (btn.icon === 'server') return <Server size={12} />;
-              if (btn.icon === 'terminal') return <Terminal size={12} />;
-              if (btn.icon === 'sparkles') return <Sparkles size={12} />;
-              if (btn.icon && btn.icon.length <= 4) return <span className="text-xs">{btn.icon}</span>;
-              return <Play size={11} fill="currentColor" />;
-            };
-
-            return (
-              <button
-                key={btn.id}
-                onClick={btn.onClick}
-                title={btn.title || btn.label}
-                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-accent text-gray-900 hover:opacity-90 shadow-sm transition flex items-center space-x-1.5 cursor-pointer"
-              >
-                {renderIcon()}
-                <span>{btn.label}</span>
-              </button>
-            );
-          })}
+          {/* 1-Click Action Toolbar (Split Buttons & Direct Actions) */}
+          <ActionToolbar
+            buttons={pluginButtons}
+            currentFile={currentFile}
+            accentColor={settings.accentColor}
+          />
         </div>
       </div>
 

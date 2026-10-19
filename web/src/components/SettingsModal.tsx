@@ -120,6 +120,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [accentColor, setAccentColor] = useState(settings.accentColor);
   const [themeMode, setThemeMode] = useState(settings.themeMode);
   const [language, setLanguage] = useState<Language>(settings.language || 'ru');
+  const [bottomDockMode, setBottomDockMode] = useState<'auto' | 'always' | 'hidden'>(
+    settings.bottomDockMode || 'auto'
+  );
 
   // Security Settings
   const [authEnabled, setAuthEnabled] = useState(settings.authEnabled || false);
@@ -374,6 +377,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           .split('\n')
           .map((p) => p.trim())
           .filter((p) => p.length > 0),
+        bottomDockMode,
       };
       if (authPass) {
         payload.authPass = authPass;
@@ -399,6 +403,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setPluginExecUnrestricted(false);
     setStructureGuardEnabled(true);
     setCriticalPatterns('');
+    setBottomDockMode('auto');
   };
 
   if (!isOpen) return null;
@@ -702,6 +707,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onChange={(e) => setAccentColor(e.target.value)}
                   className="w-28 px-2.5 py-1 bg-gray-100 dark:bg-black/30 border border-base-border rounded-xl text-xs font-mono text-gray-900 dark:text-white focus:outline-none focus:border-accent"
                 />
+              </div>
+            </div>
+
+            {/* Bottom Dock Strip Mode */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                Нижняя панель (Dock Strip)
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBottomDockMode('auto')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center justify-center space-y-1 transition-all ${
+                    bottomDockMode === 'auto'
+                      ? 'border-accent bg-accent/15 text-accent font-semibold shadow-xs'
+                      : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  <span className="font-semibold">Авто (Zero-Clutter)</span>
+                  <span className="text-[10px] opacity-75">Скрыта без плагинов</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBottomDockMode('always')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center justify-center space-y-1 transition-all ${
+                    bottomDockMode === 'always'
+                      ? 'border-accent bg-accent/15 text-accent font-semibold shadow-xs'
+                      : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  <span className="font-semibold">Всегда видна</span>
+                  <span className="text-[10px] opacity-75">Строка 28px внизу</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBottomDockMode('hidden')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center justify-center space-y-1 transition-all ${
+                    bottomDockMode === 'hidden'
+                      ? 'border-accent bg-accent/15 text-accent font-semibold shadow-xs'
+                      : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  <span className="font-semibold">Отключена</span>
+                  <span className="text-[10px] opacity-75">Всегда скрыта</span>
+                </button>
               </div>
             </div>
           </div>

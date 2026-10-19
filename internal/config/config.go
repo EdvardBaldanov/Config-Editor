@@ -27,6 +27,7 @@ type Settings struct {
 	PluginExecUnrestricted bool     `json:"pluginExecUnrestricted" yaml:"plugin_exec_unrestricted"`
 	StructureGuardEnabled  bool     `json:"structureGuardEnabled" yaml:"structure_guard_enabled"`
 	CriticalPatterns       []string `json:"criticalPatterns" yaml:"critical_patterns"`
+	BottomDockMode         string   `json:"bottomDockMode" yaml:"bottom_dock_mode"`
 }
 
 type Manager struct {
@@ -52,6 +53,7 @@ func DefaultSettings() Settings {
 		PluginExecUnrestricted: false,
 		StructureGuardEnabled:  true,
 		CriticalPatterns:       []string{},
+		BottomDockMode:         "auto",
 	}
 }
 
@@ -203,6 +205,9 @@ func (m *Manager) Update(s Settings) error {
 	m.current.PluginExecUnrestricted = s.PluginExecUnrestricted
 	m.current.StructureGuardEnabled = s.StructureGuardEnabled
 	m.current.CriticalPatterns = s.CriticalPatterns
+	if s.BottomDockMode != "" {
+		m.current.BottomDockMode = s.BottomDockMode
+	}
 
 	return m.save()
 }

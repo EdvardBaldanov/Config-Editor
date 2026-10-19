@@ -7,7 +7,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { FilePropertiesModal } from './components/FilePropertiesModal';
 import { LoginScreen } from './components/LoginScreen';
 import { PluginSplitPanel } from './components/PluginSplitPanel';
-import { PluginBottomPanel } from './components/PluginBottomPanel';
+import { BottomDockStrip } from './components/BottomDockStrip';
 import { CommandConfirmModal } from './components/CommandConfirmModal';
 import { PreSaveGuardModal } from './components/PreSaveGuardModal';
 import { api, PreSaveGuardError } from './services/api';
@@ -56,6 +56,29 @@ export const App: React.FC = () => {
   const [preSaveGuardIssue, setPreSaveGuardIssue] = useState<GuardIssue | null>(null);
   const [isPreSaveGuardOpen, setIsPreSaveGuardOpen] = useState<boolean>(false);
   const [guardResult, setGuardResult] = useState<GuardValidationResult | null>(null);
+  const [isBottomDockOpen, setIsBottomDockOpen] = useState<boolean>(false);
+  const [activeBottomDockId, setActiveBottomDockId] = useState<string>('problems');
+  const [cursorPos, setCursorPos] = useState<{ line: number; col: number }>({ line: 1, col: 1 });
+
+  // Open bottom dock if a plugin requested a bottom panel
+  useEffect(() => {
+    if (pluginState.activeBottomPanelId) {
+      setActiveBottomDockId(pluginState.activeBottomPanelId);
+      setIsBottomDockOpen(true);
+    }
+  }, [pluginState.activeBottomPanelId]);
+
+  // Global hotkeys (Ctrl+~, Ctrl+J to toggle bottom dock)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && (e.key === '`' || e.key === '~' || e.key === 'j' || e.key === 'J')) {
+        e.preventDefault();
+        setIsBottomDockOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const editorRef = useRef<any>(null);
   const t = translations[settings.language] || translations.ru;
@@ -502,9 +525,6 @@ export const App: React.FC = () => {
   const activeSplitPanel = pluginState.splitPanels.find(
     (p) => p.id === pluginState.activeSplitPanelId && p.open
   );
-  const activeBottomPanel = pluginState.bottomPanels?.find(
-    (p) => p.id === pluginState.activeBottomPanelId && p.open
-  );
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-base text-gray-900 dark:text-gray-100 select-none">
@@ -551,7 +571,7 @@ export const App: React.FC = () => {
           onUploadFile={handleUploadFile}
         />
 
-        {/* Center: Monaco Editor with multi-tabs & full-width tag bar & bottom panel */}
+        {/* Center: Monaco Editor with multi-tabs & full-width tag bar & bottom dock */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           <Editor
             tabs={tabs}
@@ -571,15 +591,32 @@ export const App: React.FC = () => {
             onChangeContent={handleContentChange}
             onSave={handleSaveFile}
             onSelectLine={handleJumpToLine}
+            onCursorChange={(line, col) => setCursorPos({ line, col })}
             editorRef={editorRef}
           />
 
-          {activeBottomPanel && (
-            <PluginBottomPanel
-              panel={activeBottomPanel}
-              onClose={() => pluginManager.closeBottomPanel(activeBottomPanel.id)}
-            />
-          )}
+          <BottomDockStrip
+            panels={pluginState.bottomPanels}
+            activePanelId={activeBottomDockId}
+            isOpen={isBottomDockOpen}
+            dockMode={settings.bottomDockMode || 'auto'}
+            guardResult={guardResult}
+            currentFile={currentFile}
+            cursorPos={cursorPos}
+            onToggleOpen={(open) => setIsBottomDockOpen((prev) => (open !== undefined ? open : !prev))}
+            onSelectPanel={(panelId) => {
+              setActiveBottomDockId(panelId);
+              setIsBottomDockOpen(true);
+            }}
+            onClosePanel={(panelId) => {
+              pluginManager.closeBottomPanel(panelId);
+              if (activeBottomDockId === panelId) {
+                setActiveBottomDockId('problems');
+              }
+            }}
+            onJumpToLine={(line, col) => handleJumpToLine(line, true)}
+            accentColor={settings.accentColor}
+          />
         </div>
 
         {/* Optional Plugin Split Panel (e.g. Web DevKit Live Preview) */}

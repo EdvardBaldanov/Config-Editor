@@ -16,6 +16,7 @@ export interface Settings {
   pluginExecUnrestricted?: boolean;
   structureGuardEnabled?: boolean;
   criticalPatterns?: string[];
+  bottomDockMode?: 'auto' | 'always' | 'hidden';
 }
 
 export interface PluginManifest {
@@ -65,14 +66,28 @@ export interface SplitPanelDef {
   render: (container: HTMLElement) => void;
 }
 
+export interface SplitActionOption {
+  id: string;
+  label: string;
+  icon?: string;
+  shortcut?: string;
+  isDefault?: boolean;
+  onClick?: () => void;
+}
+
 export interface ToolbarButtonDef {
   id: string;
   pluginId: string;
   label: string;
   title?: string;
   icon?: string;
-  visible?: () => boolean;
-  onClick: () => void;
+  shortcut?: string;
+  fileMatches?: string[];
+  options?: SplitActionOption[];
+  activeOptionId?: string;
+  visible?: (file?: OpenFile | null) => boolean;
+  onSelectOption?: (optionId: string) => void;
+  onClick: (selectedOptionId?: string) => void;
 }
 
 export interface HeaderItemDef {

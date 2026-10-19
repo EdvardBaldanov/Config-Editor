@@ -13,8 +13,13 @@ export interface BottomPanelDef {
   id: string;
   pluginId: string;
   title: string;
+  icon?: string;
+  badge?: string | number;
   open: boolean;
   render: (container: HTMLElement) => void;
+  onShow?: () => void;
+  onHide?: () => void;
+  onResize?: (width: number, height: number) => void;
 }
 
 export interface PluginSystemState {

@@ -1,0 +1,409 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Terminal,
+  FileText,
+  AlertCircle,
+  ChevronUp,
+  ChevronDown,
+  Maximize2,
+  Minimize2,
+  X,
+  RefreshCw,
+  Clock,
+  Layers,
+  Code,
+} from 'lucide-react';
+import { BottomPanelDef } from '../services/pluginLoader';
+import { OpenFile, GuardValidationResult, GuardIssue, AuditEvent } from '../types';
+import { api } from '../services/api';
+
+interface BottomDockStripProps {
+  panels: BottomPanelDef[];
+  activePanelId: string | null;
+  isOpen: boolean;
+  dockMode?: 'auto' | 'always' | 'hidden';
+  guardResult: GuardValidationResult | null;
+  currentFile: OpenFile | null;
+  cursorPos?: { line: number; col: number };
+  onToggleOpen: (open?: boolean) => void;
+  onSelectPanel: (panelId: string) => void;
+  onClosePanel: (panelId: string) => void;
+  onJumpToLine?: (line: number, col?: number) => void;
+  accentColor?: string;
+}
+
+export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
+  panels,
+  activePanelId,
+  isOpen,
+  dockMode = 'auto',
+  guardResult,
+  currentFile,
+  cursorPos = { line: 1, col: 1 },
+  onToggleOpen,
+  onSelectPanel,
+  onClosePanel,
+  onJumpToLine,
+  accentColor = '#00d2b4',
+}) => {
+  const [height, setHeight] = useState<number>(() => {
+    const saved = localStorage.getItem('cs_dock_height');
+    return saved ? parseInt(saved, 10) : 240;
+  });
+  const [isMaximized, setIsMaximized] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [recentAudit, setRecentAudit] = useState<AuditEvent[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  const mountContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Zero-Clutter check:
+  // If dockMode is 'hidden', render nothing.
+  // If dockMode is 'auto', and there are NO plugin panels and dock is closed and no errors, render nothing!
+  const hasErrors = guardResult && !guardResult.valid && guardResult.issues.length > 0;
+  const hasPluginPanels = panels.length > 0;
+
+  if (dockMode === 'hidden') {
+    return null;
+  }
+
+  if (dockMode === 'auto' && !hasPluginPanels && !isOpen && !hasErrors) {
+    return null;
+  }
+
+  // Load audit events for Output tab
+  const loadRecentAudit = async () => {
+    setAuditLoading(true);
+    try {
+      const res = await api.getAuditLogs({ limit: 30 });
+      setRecentAudit(res.events || []);
+    } catch {
+      // ignore
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && activePanelId === 'output') {
+      loadRecentAudit();
+    }
+  }, [isOpen, activePanelId]);
+
+  // Mount plugin DOM containers
+  useEffect(() => {
+    panels.forEach((p) => {
+      const el = mountContainerRefs.current[p.id];
+      if (el && p.render) {
+        p.render(el);
+      }
+    });
+  }, [panels, activePanelId]);
+
+  // Mouse Drag to Resize
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+
+    const startY = e.clientY;
+    const startHeight = height;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = startY - moveEvent.clientY;
+      const newHeight = Math.min(Math.max(startHeight + delta, 140), window.innerHeight * 0.85);
+      setHeight(newHeight);
+      localStorage.setItem('cs_dock_height', newHeight.toString());
+    };
+
+    const onMouseUp = () => {
+      setIsDragging(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleTabClick = (tabId: string) => {
+    if (activePanelId === tabId) {
+      // If clicking already active tab, toggle open/close
+      onToggleOpen(!isOpen);
+    } else {
+      onSelectPanel(tabId);
+      if (!isOpen) onToggleOpen(true);
+    }
+  };
+
+  const criticalIssuesCount = guardResult?.issues.filter((i) => i.severity === 'critical').length || 0;
+  const warningIssuesCount = guardResult?.issues.filter((i) => i.severity === 'warning').length || 0;
+
+  return (
+    <div
+      className={`border-t border-base-border flex flex-col bg-base-surface select-none z-30 shrink-0 transition-colors ${
+        isDragging ? 'select-none pointer-events-auto' : ''
+      }`}
+    >
+      {/* Expanded Content Area (Visible when isOpen) */}
+      {isOpen && (
+        <div
+          style={{ height: isMaximized ? 'calc(100vh - 120px)' : `${height}px` }}
+          className="flex flex-col overflow-hidden relative border-b border-base-border bg-[#0d1117]"
+        >
+          {/* Top Drag Splitter */}
+          <div
+            onMouseDown={handleMouseDown}
+            className="h-1.5 w-full bg-base-border hover:bg-accent/60 cursor-row-resize transition-colors flex items-center justify-center group"
+            title="Потяните для изменения высоты панели"
+          >
+            <div className="w-10 h-0.5 rounded-full bg-gray-500 group-hover:bg-accent transition-colors" />
+          </div>
+
+          {/* Panel Header & Controls */}
+          <div className="h-8 px-3 border-b border-base-border bg-[#161b22] flex items-center justify-between text-xs text-[#8b949e]">
+            <div className="flex items-center space-x-2">
+              <span className="font-semibold text-gray-200">
+                {activePanelId === 'output' && '📋 Журнал вывода и аудита'}
+                {activePanelId === 'problems' && '🔍 Проблемы и синтаксический анализ'}
+                {panels.find((p) => p.id === activePanelId)?.title}
+              </span>
+              {activePanelId === 'problems' && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-red-950/40 text-red-400 border border-red-800/40">
+                  {criticalIssuesCount} ошибок, {warningIssuesCount} предупреждений
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-1">
+              {activePanelId === 'output' && (
+                <button
+                  type="button"
+                  onClick={loadRecentAudit}
+                  disabled={auditLoading}
+                  className="p-1 hover:text-white hover:bg-white/5 rounded transition"
+                  title="Обновить журнал"
+                >
+                  <RefreshCw size={13} className={auditLoading ? 'animate-spin' : ''} />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setHeight((h) => (h <= 240 ? 420 : 240))}
+                className="p-1 hover:text-white hover:bg-white/5 rounded transition"
+                title={height <= 240 ? 'Увеличить высоту' : 'Уменьшить высоту'}
+              >
+                {height <= 240 ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsMaximized((m) => !m)}
+                className="p-1 hover:text-white hover:bg-white/5 rounded transition"
+                title={isMaximized ? 'Свернуть из полного экрана' : 'Во весь экран'}
+              >
+                {isMaximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onToggleOpen(false)}
+                className="p-1 hover:text-red-400 hover:bg-red-500/10 rounded transition"
+                title="Свернуть нижний док"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          </div>
+
+          {/* Panel Body Content */}
+          <div className="flex-1 overflow-auto relative p-2 font-mono text-xs">
+            {/* 1. Built-in: Problems Tab */}
+            {activePanelId === 'problems' && (
+              <div className="space-y-1">
+                {guardResult && guardResult.issues.length > 0 ? (
+                  guardResult.issues.map((iss, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => onJumpToLine?.(iss.line, iss.column)}
+                      className={`flex items-start justify-between p-2 rounded-lg cursor-pointer transition border ${
+                        iss.severity === 'critical'
+                          ? 'bg-red-950/20 border-red-900/40 hover:bg-red-900/30 text-red-200'
+                          : 'bg-amber-950/20 border-amber-900/40 hover:bg-amber-900/30 text-amber-200'
+                      }`}
+                    >
+                      <div className="flex items-start space-x-2">
+                        <AlertCircle
+                          size={14}
+                          className={`shrink-0 mt-0.5 ${
+                            iss.severity === 'critical' ? 'text-red-400' : 'text-amber-400'
+                          }`}
+                        />
+                        <div>
+                          <div className="font-semibold text-xs">{iss.message}</div>
+                          {iss.snippet && (
+                            <pre className="text-[11px] text-[#8b949e] mt-1 bg-black/40 p-1.5 rounded border border-[#30363d] overflow-x-auto">
+                              {iss.snippet}
+                            </pre>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0 pl-3">
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-black/40 text-cyan-400 border border-[#30363d]">
+                          {iss.file}:{iss.line}:{iss.column}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-gray-500 flex flex-col items-center justify-center space-y-1">
+                    <AlertCircle size={20} className="text-emerald-500/60" />
+                    <span>Проблем не обнаружено. Структура конфигурации валидна.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 2. Built-in: Output / Audit Tab */}
+            {activePanelId === 'output' && (
+              <div className="space-y-1">
+                {recentAudit.length > 0 ? (
+                  recentAudit.map((evt) => (
+                    <div
+                      key={evt.id}
+                      className="flex items-center justify-between py-1 px-2 hover:bg-white/5 rounded text-[11px] text-[#c9d1d9] border-b border-[#21262d]/50"
+                    >
+                      <div className="flex items-center space-x-2 truncate">
+                        <Clock size={11} className="text-[#8b949e] shrink-0" />
+                        <span className="text-[#8b949e] shrink-0">
+                          {new Date(evt.timestamp).toLocaleTimeString()}
+                        </span>
+                        <span
+                          className={`font-semibold px-1.5 py-0.2 rounded text-[10px] ${
+                            evt.severity === 'warn'
+                              ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                              : 'bg-cyan-950 text-cyan-300 border border-cyan-800'
+                          }`}
+                        >
+                          {evt.action}
+                        </span>
+                        <span className="font-mono text-gray-300 truncate">{evt.target}</span>
+                      </div>
+                      <span className="text-[#8b949e] text-[10px] shrink-0 font-mono">
+                        {evt.user} ({evt.ip})
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-gray-500">
+                    <span>Событий вывода пока нет</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 3. Plugin Mount Targets (e.g. Terminal, Docker) */}
+            {panels.map((p) => (
+              <div
+                key={p.id}
+                ref={(el) => (mountContainerRefs.current[p.id] = el)}
+                className={`h-full w-full ${p.id === activePanelId ? 'block' : 'hidden'}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* The Always-Visible Strip Bar (Height 28px) */}
+      <div className="h-7 px-2 bg-[#161b22] border-t border-[#30363d] flex items-center justify-between text-xs select-none">
+        {/* Left: Tab Buttons */}
+        <div className="flex items-center space-x-1 overflow-x-auto">
+          {/* Plugin Tabs (Terminal, Docker Logs, etc.) */}
+          {panels.map((p) => {
+            const isActive = isOpen && activePanelId === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => handleTabClick(p.id)}
+                className={`flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-accent text-gray-900 shadow-sm'
+                    : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-white/5'
+                }`}
+                style={isActive ? { backgroundColor: accentColor } : {}}
+              >
+                <Terminal size={12} />
+                <span>{p.title}</span>
+                {p.badge && (
+                  <span className="px-1 py-0.2 rounded text-[9px] bg-black/40 text-white font-mono">
+                    {p.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+
+          {/* Built-in: Output */}
+          <button
+            type="button"
+            onClick={() => handleTabClick('output')}
+            className={`flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+              isOpen && activePanelId === 'output'
+                ? 'bg-accent text-gray-900 shadow-sm'
+                : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-white/5'
+            }`}
+            style={isOpen && activePanelId === 'output' ? { backgroundColor: accentColor } : {}}
+          >
+            <FileText size={12} />
+            <span>Вывод</span>
+          </button>
+
+          {/* Built-in: Problems (Shows red badge when syntax error occurs) */}
+          <button
+            type="button"
+            onClick={() => handleTabClick('problems')}
+            className={`flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+              isOpen && activePanelId === 'problems'
+                ? 'bg-accent text-gray-900 shadow-sm'
+                : criticalIssuesCount > 0
+                ? 'text-red-400 bg-red-950/40 border border-red-800/40'
+                : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-white/5'
+            }`}
+            style={isOpen && activePanelId === 'problems' ? { backgroundColor: accentColor } : {}}
+          >
+            <AlertCircle size={12} className={criticalIssuesCount > 0 ? 'text-red-400 animate-pulse' : ''} />
+            <span>Проблемы</span>
+            {criticalIssuesCount > 0 && (
+              <span className="px-1.5 py-0.2 text-[9px] font-mono font-bold rounded-full bg-red-600 text-white">
+                {criticalIssuesCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Right: File Status & Hotkey Hint */}
+        <div className="flex items-center space-x-3 text-[11px] text-[#8b949e] font-mono shrink-0 pl-2">
+          {currentFile && (
+            <>
+              <span>
+                Ln {cursorPos.line}, Col {cursorPos.col}
+              </span>
+              <span className="hidden sm:inline">UTF-8</span>
+              <span className="hidden sm:inline">Spaces: 2</span>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => onToggleOpen(!isOpen)}
+            className="flex items-center space-x-1 text-[10px] text-gray-400 hover:text-white transition"
+            title="Переключить нижний док (Ctrl+~ / Ctrl+J)"
+          >
+            <span>Ctrl+~</span>
+            {isOpen ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
