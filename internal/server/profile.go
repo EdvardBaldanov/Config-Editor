@@ -188,22 +188,33 @@ func (s *Server) handleImportProfile(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			// If download URL is known from profile or from catalog
-			downloadURL := p.SourceURL
-			if downloadURL == "" || !strings.HasSuffix(strings.ToLower(downloadURL), ".zip") {
-				if catItem, ok := catalogMap[p.ID]; ok && catItem.DownloadURL != "" {
-					downloadURL = catItem.DownloadURL
+			// If download URL is known from profile, catalog, or known official plugins
+			downloadURL := strings.TrimSpace(p.SourceURL)
+			if downloadURL == "" {
+				if catItem, ok := catalogMap[p.ID]; ok {
+					if catItem.DownloadURL != "" {
+						downloadURL = catItem.DownloadURL
+					} else if catItem.Homepage != "" {
+						downloadURL = catItem.Homepage
+					}
+				}
+			}
+			if downloadURL == "" {
+				if knownURL, ok := plugin.KnownOfficialPlugins[p.ID]; ok {
+					downloadURL = knownURL
 				}
 			}
 
 			if downloadURL != "" && (strings.HasPrefix(downloadURL, "http://") || strings.HasPrefix(downloadURL, "https://")) {
-				if strings.HasSuffix(strings.ToLower(downloadURL), ".zip") {
-					if _, err := s.plugins.InstallFromURL(downloadURL); err == nil {
-						result.PluginsQueued = append(result.PluginsQueued, p.ID)
-					} else {
-						result.Errors = append(result.Errors, fmt.Sprintf("failed to install plugin %s: %v", p.ID, err))
-					}
+				if installedPlugin, err := s.plugins.InstallFromURL(downloadURL); err == nil {
+					result.PluginsQueued = append(result.PluginsQueued, p.ID)
+					_ = s.plugins.TogglePlugin(installedPlugin.ID, p.Enabled)
+					installedMap[p.ID] = true
+				} else {
+					result.Errors = append(result.Errors, fmt.Sprintf("failed to install plugin %s (%s): %v", p.ID, downloadURL, err))
 				}
+			} else {
+				result.Errors = append(result.Errors, fmt.Sprintf("no valid download URL found for plugin %s", p.ID))
 			}
 		}
 	}

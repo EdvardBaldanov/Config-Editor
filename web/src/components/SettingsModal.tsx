@@ -348,6 +348,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (queuedCount > 0) {
         details.push(`📦 Установлено плагинов: +${queuedCount}`);
       }
+      if (res?.errors && res.errors.length > 0) {
+        details.push(`⚠️ Ошибки при установке плагинов:\n  - ${res.errors.join('\n  - ')}`);
+      }
 
       if (details.length > 0) {
         alert(`Профиль успешно применен!\n\n• ${details.join('\n• ')}`);

@@ -66,6 +66,11 @@ type ProfileImportResult struct {
 	Errors          []string `json:"errors,omitempty"`
 }
 
+var KnownOfficialPlugins = map[string]string{
+	"web-devkit":   "https://github.com/EdvardBaldanov/config-studio-web-devkit",
+	"remote-agent": "https://github.com/EdvardBaldanov/config-studio-remote-agent",
+}
+
 // GenerateProfile creates an exportable StudioProfile from current settings, sources, and plugins.
 // Crucially, it guarantees secrets, auth credentials, and sensitive tokens are completely excluded.
 func GenerateProfile(
@@ -75,12 +80,18 @@ func GenerateProfile(
 ) StudioProfile {
 	profilePlugins := make([]ProfilePlugin, 0, len(installedPlugins))
 	for _, p := range installedPlugins {
+		sourceURL := p.Manifest.Homepage
+		if sourceURL == "" {
+			if known, ok := KnownOfficialPlugins[p.Manifest.ID]; ok {
+				sourceURL = known
+			}
+		}
 		profilePlugins = append(profilePlugins, ProfilePlugin{
 			ID:        p.Manifest.ID,
 			Name:      p.Manifest.Name,
 			Version:   p.Manifest.Version,
 			Enabled:   p.Enabled,
-			SourceURL: p.Manifest.Homepage,
+			SourceURL: sourceURL,
 		})
 	}
 
