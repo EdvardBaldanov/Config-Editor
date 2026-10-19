@@ -141,6 +141,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [pendingInstall, setPendingInstall] = useState<PendingInstall | null>(null);
   const [isConfirmingInstall, setIsConfirmingInstall] = useState(false);
 
+  // Audit Log State
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditSeverity, setAuditSeverity] = useState<string>('');
+  const [auditSearch, setAuditSearch] = useState<string>('');
+  const [expandedAuditId, setExpandedAuditId] = useState<string | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -166,8 +174,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setIsLoadingPlugins(false);
     }
   };
-
-  if (!isOpen) return null;
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -272,14 +278,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  // Audit Log State
-  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
-  const [auditTotal, setAuditTotal] = useState(0);
-  const [auditLoading, setAuditLoading] = useState(false);
-  const [auditSeverity, setAuditSeverity] = useState<string>('');
-  const [auditSearch, setAuditSearch] = useState<string>('');
-  const [expandedAuditId, setExpandedAuditId] = useState<string | null>(null);
-
   const loadAuditLogs = async (sev = auditSeverity, query = auditSearch) => {
     setAuditLoading(true);
     try {
@@ -368,6 +366,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setApiKey('');
     setPluginExecUnrestricted(false);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in select-none">
