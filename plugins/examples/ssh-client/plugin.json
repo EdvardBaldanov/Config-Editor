@@ -1,0 +1,21 @@
+{
+  "id": "ssh-client",
+  "name": "SSH Client & Terminal",
+  "version": "1.0.0",
+  "description": "Provides secure inter-plugin SSH remote execution and terminal services",
+  "author": "Config Studio Team",
+  "icon": "terminal",
+  "entry": "main.js",
+  "permissions": ["network", "terminal.exec"],
+  "providesServices": ["ssh"],
+  "locales": {
+    "ru": {
+      "name": "SSH Клиент и Терминал",
+      "description": "Предоставляет защищенный межплагинный сервис SSH для удаленных команд и терминала"
+    },
+    "en": {
+      "name": "SSH Client & Terminal",
+      "description": "Provides secure inter-plugin SSH remote execution and terminal services"
+    }
+  }
+}

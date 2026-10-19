@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -37,6 +38,16 @@ func (s *Server) handleTogglePlugin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.plugins.TogglePlugin(req.ID, req.Enabled); err != nil {
+		var depErr *plugin.DependencyInUseError
+		if errors.As(err, &depErr) {
+			jsonResponse(w, http.StatusConflict, map[string]any{
+				"error":      "dependency_in_use",
+				"message":    err.Error(),
+				"pluginId":   depErr.PluginID,
+				"dependents": depErr.Dependents,
+			})
+			return
+		}
 		jsonError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -259,6 +270,16 @@ func (s *Server) handleDeletePlugin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.plugins.DeletePlugin(pluginID); err != nil {
+		var depErr *plugin.DependencyInUseError
+		if errors.As(err, &depErr) {
+			jsonResponse(w, http.StatusConflict, map[string]any{
+				"error":      "dependency_in_use",
+				"message":    err.Error(),
+				"pluginId":   depErr.PluginID,
+				"dependents": depErr.Dependents,
+			})
+			return
+		}
 		jsonError(w, http.StatusInternalServerError, "failed to delete plugin: "+err.Error())
 		return
 	}

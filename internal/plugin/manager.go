@@ -125,7 +125,10 @@ func enrichManifestLocales(manifest *Manifest, pluginDir string) {
 func (m *Manager) ListPlugins() ([]Plugin, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+	return m.listPluginsLocked()
+}
 
+func (m *Manager) listPluginsLocked() ([]Plugin, error) {
 	entries, err := os.ReadDir(m.pluginsDir)
 	if err != nil {
 		return nil, err
@@ -180,7 +183,97 @@ func (m *Manager) ListPlugins() ([]Plugin, error) {
 		})
 	}
 
+	// Calculate active dependents for each plugin
+	dependentsMap := make(map[string][]string)
+	for _, p := range plugins {
+		if !p.Enabled {
+			continue
+		}
+		for depID := range p.Dependencies {
+			dependentsMap[depID] = append(dependentsMap[depID], p.ID)
+		}
+	}
+	for i := range plugins {
+		plugins[i].Dependents = dependentsMap[plugins[i].ID]
+	}
+
 	return plugins, nil
+}
+
+// GetActiveDependents returns IDs of active plugins that depend on the given plugin ID.
+func (m *Manager) GetActiveDependents(id string) []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.getActiveDependentsLocked(id)
+}
+
+func (m *Manager) getActiveDependentsLocked(id string) []string {
+	plugins, err := m.listPluginsLocked()
+	if err != nil {
+		return nil
+	}
+	var dependents []string
+	for _, p := range plugins {
+		if !p.Enabled || p.ID == id {
+			continue
+		}
+		for depID := range p.Dependencies {
+			if depID == id {
+				dependents = append(dependents, p.ID)
+				break
+			}
+		}
+	}
+	return dependents
+}
+
+// CheckDependencies checks whether all dependencies required by the manifest are satisfied.
+func (m *Manager) CheckDependencies(manifest Manifest) []DependencyIssue {
+	if len(manifest.Dependencies) == 0 {
+		return nil
+	}
+
+	plugins, err := m.ListPlugins()
+	if err != nil {
+		plugins = []Plugin{}
+	}
+
+	installedMap := make(map[string]Plugin)
+	for _, p := range plugins {
+		installedMap[p.ID] = p
+	}
+
+	var issues []DependencyIssue
+	for depID, constraint := range manifest.Dependencies {
+		inst, exists := installedMap[depID]
+		if !exists {
+			issues = append(issues, DependencyIssue{
+				PluginID: depID,
+				Required: constraint,
+				Status:   "missing",
+			})
+			continue
+		}
+		if !inst.Enabled {
+			issues = append(issues, DependencyIssue{
+				PluginID:  depID,
+				Required:  constraint,
+				Installed: inst.Version,
+				Status:    "disabled",
+			})
+			continue
+		}
+		if !MatchesVersionConstraint(inst.Version, constraint) {
+			issues = append(issues, DependencyIssue{
+				PluginID:  depID,
+				Required:  constraint,
+				Installed: inst.Version,
+				Status:    "incompatible",
+			})
+			continue
+		}
+	}
+	return issues
 }
 
 // GetPlugin returns a single plugin by ID.
@@ -202,6 +295,16 @@ func (m *Manager) TogglePlugin(id string, enabled bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if !enabled {
+		activeDeps := m.getActiveDependentsLocked(id)
+		if len(activeDeps) > 0 {
+			return &DependencyInUseError{
+				PluginID:   id,
+				Dependents: activeDeps,
+			}
+		}
+	}
+
 	m.state[id] = enabled
 	if !enabled && m.runner != nil {
 		m.runner.StopAllForPlugin(id)
@@ -213,6 +316,14 @@ func (m *Manager) TogglePlugin(id string, enabled bool) error {
 func (m *Manager) DeletePlugin(id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	activeDeps := m.getActiveDependentsLocked(id)
+	if len(activeDeps) > 0 {
+		return &DependencyInUseError{
+			PluginID:   id,
+			Dependents: activeDeps,
+		}
+	}
 
 	p, err := m.getPluginLocked(id)
 	if err != nil {
@@ -366,12 +477,13 @@ func (m *Manager) InspectZip(r io.Reader, size int64, sourceURL string) (*Pendin
 
 	tempKey := generateTempKey()
 	pending := &PendingInstall{
-		TempKey:    tempKey,
-		Manifest:   manifest,
-		IsOfficial: isOfficial,
-		TempDir:    tmpDir,
-		PluginDir:  pluginDir,
-		CreatedAt:  time.Now(),
+		TempKey:          tempKey,
+		Manifest:         manifest,
+		IsOfficial:       isOfficial,
+		DependencyIssues: m.CheckDependencies(manifest),
+		TempDir:          tmpDir,
+		PluginDir:        pluginDir,
+		CreatedAt:        time.Now(),
 	}
 
 	m.mu.Lock()

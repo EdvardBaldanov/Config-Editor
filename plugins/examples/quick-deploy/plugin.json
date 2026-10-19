@@ -1,0 +1,23 @@
+{
+  "id": "quick-deploy",
+  "name": "Quick Deployer",
+  "version": "1.0.0",
+  "description": "Fast 1-click deployment tool using the SSH Client inter-plugin service",
+  "author": "Config Studio Team",
+  "icon": "send",
+  "entry": "main.js",
+  "dependencies": {
+    "ssh-client": ">=1.0.0"
+  },
+  "permissions": ["ui.panels", "service:ssh"],
+  "locales": {
+    "ru": {
+      "name": "Быстрый Деплой",
+      "description": "Инструмент быстрого деплоя в 1 клик, использующий межплагинный сервис SSH Клиента"
+    },
+    "en": {
+      "name": "Quick Deployer",
+      "description": "Fast 1-click deployment tool using the SSH Client inter-plugin service"
+    }
+  }
+}

@@ -490,6 +490,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleConfirmConsent = async () => {
     if (!pendingInstall) return;
+
+    // Check for disabled or missing dependencies
+    if (pendingInstall.dependencyIssues && pendingInstall.dependencyIssues.length > 0) {
+      const isEn = language === 'en';
+      const disabled = pendingInstall.dependencyIssues.filter((i) => i.status === 'disabled');
+      const missing = pendingInstall.dependencyIssues.filter((i) => i.status === 'missing');
+
+      // 1. Enable disabled dependencies automatically with confirmation
+      if (disabled.length > 0) {
+        const depNames = disabled.map((d) => d.pluginId).join(', ');
+        const ok = confirm(
+          isEn
+            ? `The following required plugins are disabled:\n${depNames}\n\nEnable them automatically?`
+            : `Следующие необходимые плагины сейчас отключены:\n${depNames}\n\nВключить их автоматически?`
+        );
+        if (ok) {
+          for (const d of disabled) {
+            try {
+              await api.togglePlugin(d.pluginId, true);
+            } catch (e) {
+              console.error('Failed to auto-enable dependency:', e);
+            }
+          }
+        }
+      }
+
+      // 2. 1-Click install missing dependencies from catalog
+      if (missing.length > 0) {
+        const canInstallFromCatalog = missing.filter((m) =>
+          OFFICIAL_CATALOG.some((c) => c.id === m.pluginId)
+        );
+        if (canInstallFromCatalog.length > 0) {
+          const names = canInstallFromCatalog.map((m) => m.pluginId).join(', ');
+          const ok = confirm(
+            isEn
+              ? `Plugin "${pendingInstall.manifest.name}" requires the following dependencies available in catalog:\n${names}\n\nInstall them automatically now in 1 click?`
+              : `Для работы плагина "${pendingInstall.manifest.name}" требуются зависимости из каталога:\n${names}\n\nУстановить их автоматически прямо сейчас в 1 клик?`
+          );
+          if (ok) {
+            for (const m of canInstallFromCatalog) {
+              const catPlugin = OFFICIAL_CATALOG.find((c) => c.id === m.pluginId);
+              if (catPlugin) {
+                try {
+                  const depPending = await api.inspectPluginUrl(catPlugin.repoUrl);
+                  await api.confirmPluginInstall(depPending.tempKey);
+                } catch (e) {
+                  console.error('Failed to auto-install dependency:', e);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     setIsConfirmingInstall(true);
     try {
       const installed = await api.confirmPluginInstall(pendingInstall.tempKey);
@@ -516,6 +571,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleTogglePlugin = async (id: string, currentEnabled: boolean) => {
+    if (currentEnabled) {
+      const pluginItem = pluginsList.find((p) => p.id === id);
+      if (pluginItem && pluginItem.dependents && pluginItem.dependents.length > 0) {
+        const isEn = language === 'en';
+        alert(
+          isEn
+            ? `Cannot disable "${pluginItem.name}". The following active plugins depend on it:\n${pluginItem.dependents.join(', ')}\n\nPlease disable dependent plugins first.`
+            : `Нельзя отключить "${pluginItem.name}". От него зависят активные плагины:\n${pluginItem.dependents.join(', ')}\n\nСначала отключите зависимые плагины.`
+        );
+        return;
+      }
+    }
+
     try {
       await api.togglePlugin(id, !currentEnabled);
       if (currentEnabled) {
@@ -530,7 +598,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleDeletePlugin = async (id: string, name: string) => {
-    if (!confirm(`Вы действительно хотите удалить плагин "${name}"?`)) return;
+    const pluginItem = pluginsList.find((p) => p.id === id);
+    if (pluginItem && pluginItem.dependents && pluginItem.dependents.length > 0) {
+      const isEn = language === 'en';
+      alert(
+        isEn
+          ? `Cannot delete "${name}". The following active plugins depend on it:\n${pluginItem.dependents.join(', ')}\n\nPlease disable or delete dependent plugins first.`
+          : `Нельзя удалить плагин "${name}". От него зависят активные плагины:\n${pluginItem.dependents.join(', ')}\n\nСначала отключите или удалите зависимые плагины.`
+      );
+      return;
+    }
+
+    const isEn = language === 'en';
+    if (!confirm(isEn ? `Are you sure you want to delete plugin "${name}"?` : `Вы действительно хотите удалить плагин "${name}"?`)) return;
     try {
       await api.deletePlugin(id);
       pluginManager.removePluginAssets(id);
@@ -1274,12 +1354,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   className={`text-[9px] px-1.5 py-0.2 rounded font-mono ${
                                     perm.includes('exec') || perm.includes('secrets')
                                       ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20'
+                                      : perm.startsWith('service')
+                                      ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
                                       : 'bg-teal-500/10 text-teal-300 border border-teal-500/20'
                                   }`}
                                 >
                                   {perm}
                                 </span>
                               ))}
+                            </div>
+                          )}
+
+                          {p.providesServices && p.providesServices.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1">
+                              {p.providesServices.map((svc) => (
+                                <span
+                                  key={svc}
+                                  className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-teal-500/15 text-teal-300 border border-teal-500/25"
+                                  title={`Provides inter-plugin service '${svc}'`}
+                                >
+                                  ⚡ {svc}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {p.dependencies && Object.keys(p.dependencies).length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1">
+                              {Object.entries(p.dependencies).map(([depId, ver]) => (
+                                <span
+                                  key={depId}
+                                  className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-purple-500/10 text-purple-300 border border-purple-500/20"
+                                  title={`Requires plugin '${depId}'`}
+                                >
+                                  📦 {depId} {ver ? `(${ver})` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {p.dependents && p.dependents.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <span
+                                className="text-[9px] px-1.5 py-0.2 rounded font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1"
+                                title="Active plugins that depend on this plugin"
+                              >
+                                🔗 {language === 'en' ? 'Used by:' : 'Используется:'} {p.dependents.join(', ')}
+                              </span>
                             </div>
                           )}
                         </div>

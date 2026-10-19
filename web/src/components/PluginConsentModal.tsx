@@ -100,7 +100,18 @@ function getPermissionMeta(perm: string, lang: string = 'ru'): PermMeta {
         riskLabel: isEn ? 'Critical risk' : 'Критический риск',
         icon: <Key size={16} className="text-rose-400" />,
       };
-    default:
+      if (perm.startsWith('service:') || perm.startsWith('service.')) {
+        const svc = perm.replace(/^service[:.]/, '');
+        return {
+          label: isEn ? `Inter-plugin Service: ${svc}` : `Межплагинный сервис: ${svc}`,
+          desc: isEn
+            ? `Calls '${svc}' API methods exposed by dependency plugin`
+            : `Вызовы API методов сервиса '${svc}', предоставляемого зависимым плагином`,
+          risk: 'medium',
+          riskLabel: isEn ? 'Medium risk' : 'Средний риск',
+          icon: <Layers size={16} className="text-teal-400" />,
+        };
+      }
       if (perm.startsWith('ui.')) {
         return {
           label: isEn ? `Interface: ${perm}` : `Интерфейс: ${perm}`,
@@ -236,7 +247,66 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
                 </div>
               </div>
             )}
+
+            {pending.manifest.dependencies && Object.keys(pending.manifest.dependencies).length > 0 && (
+              <div className="flex items-center gap-1.5 pt-2 text-xs text-gray-400">
+                <span className="text-gray-400">{isEn ? 'Dependencies:' : 'Зависимости:'}</span>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(pending.manifest.dependencies).map(([depId, ver]) => (
+                    <span
+                      key={depId}
+                      className="px-1.5 py-0.5 bg-blue-500/10 border border-blue-500/20 text-blue-300 rounded font-mono text-[10px]"
+                    >
+                      🔗 {depId} {ver ? `(${ver})` : ''}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {pending.manifest.providesServices && pending.manifest.providesServices.length > 0 && (
+              <div className="flex items-center gap-1.5 pt-1 text-xs text-gray-400">
+                <span className="text-gray-400">{isEn ? 'Provides services:' : 'Предоставляет сервисы:'}</span>
+                <div className="flex flex-wrap gap-1">
+                  {pending.manifest.providesServices.map((svc) => (
+                    <span
+                      key={svc}
+                      className="px-1.5 py-0.5 bg-teal-500/10 border border-teal-500/20 text-teal-300 rounded font-mono text-[10px]"
+                    >
+                      ⚡ {svc}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Missing / Incompatible Dependencies Notice */}
+          {pending.dependencyIssues && pending.dependencyIssues.length > 0 && (
+            <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-amber-300">
+                <AlertTriangle size={15} className="text-amber-400 shrink-0" />
+                <span>
+                  {isEn ? 'Required plugin dependencies:' : 'Требуются зависимые плагины:'}
+                </span>
+              </div>
+              <div className="space-y-1 pl-6 text-xs text-amber-200/90">
+                {pending.dependencyIssues.map((issue) => (
+                  <div key={issue.pluginId} className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] text-amber-300 font-semibold">{issue.pluginId}</span>
+                    <span className="text-gray-400 text-[10px]">({issue.required || '*'})</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-medium">
+                      {issue.status === 'missing'
+                        ? (isEn ? 'Not installed' : 'Не установлен')
+                        : issue.status === 'disabled'
+                        ? (isEn ? 'Disabled' : 'Отключен')
+                        : (isEn ? 'Incompatible version' : 'Несовместимая версия')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Capabilities & Permissions Checklist */}
           <div>

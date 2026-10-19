@@ -236,3 +236,152 @@ func TestPluginLocalesAndLocalization(t *testing.T) {
 		t.Errorf("unexpected localization pack: %+v", p.Localization)
 	}
 }
+
+func TestSemVerAndVersionConstraints(t *testing.T) {
+	tests := []struct {
+		installed  string
+		constraint string
+		expected   bool
+	}{
+		{"1.0.0", "", true},
+		{"1.0.0", "*", true},
+		{"1.0.0", "latest", true},
+		{"1.2.3", ">=1.0.0", true},
+		{"0.9.5", ">=1.0.0", false},
+		{"2.0.0", ">=1.0.0", true},
+		{"1.5.0", "<=1.5.0", true},
+		{"1.5.1", "<=1.5.0", false},
+		{"1.2.0", "^1.0.0", true},
+		{"2.0.0", "^1.0.0", false},
+		{"1.2.4", "~1.2.0", true},
+		{"1.3.0", "~1.2.0", false},
+		{"1.0.0", "1.0.0", true},
+		{"1.0.1", "1.0.0", false},
+		{"v2.1.0", ">=2.0.0", true},
+	}
+
+	for _, tc := range tests {
+		actual := MatchesVersionConstraint(tc.installed, tc.constraint)
+		if actual != tc.expected {
+			t.Errorf("MatchesVersionConstraint(%q, %q) = %v; expected %v", tc.installed, tc.constraint, actual, tc.expected)
+		}
+	}
+}
+
+func TestPluginDependenciesAndCascadeProtection(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "cs-test-deps-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	pluginsDir := filepath.Join(tempDir, "plugins")
+
+	// 1. Install provider plugin: ssh-client (v1.2.0)
+	sshDir := filepath.Join(pluginsDir, "ssh-client")
+	_ = os.MkdirAll(sshDir, 0755)
+	_ = os.WriteFile(filepath.Join(sshDir, "plugin.json"), []byte(`{
+		"id": "ssh-client",
+		"name": "SSH Client",
+		"version": "1.2.0",
+		"entry": "main.js",
+		"providesServices": ["ssh"]
+	}`), 0644)
+	_ = os.WriteFile(filepath.Join(sshDir, "main.js"), []byte("console.log('ssh');"), 0644)
+
+	// 2. Install consumer plugin: quick-deploy (v1.0.0) depending on ssh-client >= 1.0.0
+	deployDir := filepath.Join(pluginsDir, "quick-deploy")
+	_ = os.MkdirAll(deployDir, 0755)
+	_ = os.WriteFile(filepath.Join(deployDir, "plugin.json"), []byte(`{
+		"id": "quick-deploy",
+		"name": "Quick Deploy",
+		"version": "1.0.0",
+		"entry": "main.js",
+		"dependencies": {
+			"ssh-client": ">=1.0.0"
+		},
+		"permissions": ["service:ssh"]
+	}`), 0644)
+	_ = os.WriteFile(filepath.Join(deployDir, "main.js"), []byte("console.log('deploy');"), 0644)
+
+	mgr, err := NewManager(tempDir, nil)
+	if err != nil {
+		t.Fatalf("failed to create manager: %v", err)
+	}
+
+	plugins, err := mgr.ListPlugins()
+	if err != nil {
+		t.Fatalf("ListPlugins failed: %v", err)
+	}
+
+	// Verify dependents mapping: ssh-client should have quick-deploy in dependents
+	var sshPlugin *Plugin
+	for i := range plugins {
+		if plugins[i].ID == "ssh-client" {
+			sshPlugin = &plugins[i]
+		}
+	}
+	if sshPlugin == nil {
+		t.Fatalf("ssh-client plugin not found")
+	}
+	if len(sshPlugin.Dependents) != 1 || sshPlugin.Dependents[0] != "quick-deploy" {
+		t.Errorf("expected ssh-client to have dependents ['quick-deploy'], got %v", sshPlugin.Dependents)
+	}
+
+	// 3. Test CheckDependencies for a new manifest requiring missing plugin
+	issues := mgr.CheckDependencies(Manifest{
+		ID: "analyzer",
+		Dependencies: map[string]string{
+			"ssh-client":     ">=1.0.0",
+			"docker-manager": "*",
+		},
+	})
+	if len(issues) != 1 || issues[0].PluginID != "docker-manager" || issues[0].Status != "missing" {
+		t.Errorf("expected missing docker-manager issue, got %+v", issues)
+	}
+
+	// 4. Test Cascade Protection: attempting to disable ssh-client while quick-deploy is enabled must fail!
+	err = mgr.TogglePlugin("ssh-client", false)
+	if err == nil {
+		t.Fatalf("expected error disabling ssh-client with active dependent, got nil")
+	}
+	var depErr *DependencyInUseError
+	if !errorsAs(err, &depErr) {
+		t.Fatalf("expected *DependencyInUseError, got: %T: %v", err, err)
+	}
+
+	// 5. Test Cascade Protection on Delete
+	err = mgr.DeletePlugin("ssh-client")
+	if err == nil {
+		t.Fatalf("expected error deleting ssh-client with active dependent, got nil")
+	}
+
+	// 6. Once quick-deploy is disabled, ssh-client CAN be safely disabled
+	if err := mgr.TogglePlugin("quick-deploy", false); err != nil {
+		t.Fatalf("failed to disable quick-deploy: %v", err)
+	}
+
+	if err := mgr.TogglePlugin("ssh-client", false); err != nil {
+		t.Errorf("expected ssh-client to be disableable when dependent is inactive, got: %v", err)
+	}
+}
+
+func errorsAs(err error, target any) bool {
+	type causer interface {
+		As(any) bool
+	}
+	if c, ok := err.(causer); ok {
+		return c.As(target)
+	}
+	if err == nil {
+		return false
+	}
+	// direct type check for DependencyInUseError
+	if depErrPtr, ok := target.(**DependencyInUseError); ok {
+		if val, isType := err.(*DependencyInUseError); isType {
+			*depErrPtr = val
+			return true
+		}
+	}
+	return false
+}

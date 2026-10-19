@@ -1,6 +1,9 @@
 package plugin
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // LanguagePackDef defines a full core UI language pack contributed by a plugin.
 type LanguagePackDef struct {
@@ -20,12 +23,14 @@ type Manifest struct {
 	Homepage      string                       `json:"homepage,omitempty"`
 	Icon          string                       `json:"icon,omitempty"`          // Lucide icon name or svg
 	Entry         string                       `json:"entry"`                   // e.g. "main.js"
-	CSS           string                       `json:"css,omitempty"`           // optional "style.css"
-	Permissions   []string                     `json:"permissions,omitempty"`   // e.g. ["ui.panels", "terminal.exec", "network.bind"]
-	FileMatches   []string                     `json:"fileMatches,omitempty"`   // e.g. [".html", ".php", ".js"]
-	MinAppVersion string                       `json:"minAppVersion,omitempty"`
-	Locales       map[string]map[string]string `json:"locales,omitempty"`      // Per-language dictionary for plugin's own UI
-	Localization  *LanguagePackDef             `json:"localization,omitempty"` // For Core UI language pack plugins
+	CSS              string                       `json:"css,omitempty"`              // optional "style.css"
+	Permissions      []string                     `json:"permissions,omitempty"`      // e.g. ["ui.panels", "terminal.exec", "network.bind", "service:ssh"]
+	FileMatches      []string                     `json:"fileMatches,omitempty"`      // e.g. [".html", ".php", ".js"]
+	MinAppVersion    string                       `json:"minAppVersion,omitempty"`
+	Dependencies     map[string]string            `json:"dependencies,omitempty"`     // pluginId -> versionConstraint (e.g. ">=1.0.0", "*")
+	ProvidesServices []string                     `json:"providesServices,omitempty"` // service identifiers exposed by this plugin
+	Locales          map[string]map[string]string `json:"locales,omitempty"`         // Per-language dictionary for plugin's own UI
+	Localization     *LanguagePackDef             `json:"localization,omitempty"`    // For Core UI language pack plugins
 }
 
 // Plugin represents an installed plugin and its runtime state.
@@ -35,6 +40,7 @@ type Plugin struct {
 	Dir         string    `json:"dir"`
 	InstalledAt time.Time `json:"installedAt"`
 	Builtin     bool      `json:"builtin"`
+	Dependents  []string  `json:"dependents,omitempty"` // IDs of active plugins that depend on this plugin
 }
 
 // ExecRequest represents a command execution request from a plugin.
@@ -69,13 +75,32 @@ type ProcessInfo struct {
 	Status    string    `json:"status"` // "running", "stopped", "failed"
 }
 
+// DependencyIssue reports a missing, disabled, or incompatible plugin dependency.
+type DependencyIssue struct {
+	PluginID  string `json:"pluginId"`
+	Required  string `json:"required"`
+	Installed string `json:"installed,omitempty"`
+	Status    string `json:"status"` // "missing", "incompatible", "disabled"
+}
+
+// DependencyInUseError indicates that a plugin cannot be disabled/deleted because other plugins depend on it.
+type DependencyInUseError struct {
+	PluginID   string
+	Dependents []string
+}
+
+func (e *DependencyInUseError) Error() string {
+	return "plugin \"" + e.PluginID + "\" cannot be disabled or deleted because active plugins depend on it: " + strings.Join(e.Dependents, ", ")
+}
+
 // PendingInstall represents an inspected plugin awaiting user consent.
 type PendingInstall struct {
-	TempKey    string    `json:"tempKey"`
-	Manifest   Manifest  `json:"manifest"`
-	IsOfficial bool      `json:"isOfficial"`
-	TempDir    string    `json:"-"`
-	PluginDir  string    `json:"-"`
-	CreatedAt  time.Time `json:"createdAt"`
+	TempKey          string            `json:"tempKey"`
+	Manifest         Manifest          `json:"manifest"`
+	IsOfficial       bool              `json:"isOfficial"`
+	DependencyIssues []DependencyIssue `json:"dependencyIssues,omitempty"`
+	TempDir          string            `json:"-"`
+	PluginDir        string            `json:"-"`
+	CreatedAt        time.Time         `json:"createdAt"`
 }
 

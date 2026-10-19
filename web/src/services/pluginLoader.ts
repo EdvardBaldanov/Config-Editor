@@ -52,6 +52,10 @@ class PluginLoader {
   private activeBottomPanelId: string | null = null;
   private currentLanguage: string = 'ru';
   private languageChangeCallbacks: Set<(lang: string) => void> = new Set();
+  private registeredServices: Map<
+    string,
+    { serviceName: string; providerPluginId: string; implementation: any }
+  > = new Map();
 
   private onFileOpenCallbacks: Array<(file: OpenFile) => void> = [];
   private onFileSaveCallbacks: Array<(file: OpenFile) => void> = [];
@@ -332,6 +336,95 @@ class PluginLoader {
           };
         },
       },
+
+      services: {
+        register: (serviceName: string, implementation: any, providerPluginId: string) => {
+          if (!serviceName || !implementation || !providerPluginId) {
+            throw new Error('[Services] register requires serviceName, implementation, and providerPluginId');
+          }
+          const provider = this.plugins.find((p) => p.id === providerPluginId);
+          if (!provider) {
+            console.warn(`[Services] Provider plugin '${providerPluginId}' not found in active plugins list`);
+          } else if (!provider.providesServices?.includes(serviceName)) {
+            console.warn(`[Services] Plugin '${providerPluginId}' did not declare providesServices: ['${serviceName}'] in its manifest`);
+          }
+          this.registeredServices.set(serviceName, {
+            serviceName,
+            providerPluginId,
+            implementation,
+          });
+          console.log(`[Services] Registered inter-plugin service '${serviceName}' from provider '${providerPluginId}'`);
+        },
+
+        get: async (serviceName: string, consumerPluginId: string) => {
+          if (!serviceName || !consumerPluginId) {
+            throw new Error('[Services] get requires serviceName and consumerPluginId');
+          }
+
+          const reg = this.registeredServices.get(serviceName);
+          if (!reg) {
+            throw new Error(`[Services] Service '${serviceName}' is not registered or provider is inactive`);
+          }
+
+          const consumer = this.plugins.find((p) => p.id === consumerPluginId);
+          if (!consumer) {
+            throw new Error(`[Services] Consumer plugin '${consumerPluginId}' not found`);
+          }
+
+          // 1. Dependency validation: consumer must declare provider in dependencies
+          const hasDep =
+            consumer.dependencies &&
+            Object.prototype.hasOwnProperty.call(consumer.dependencies, reg.providerPluginId);
+          if (!hasDep) {
+            throw new Error(
+              `[Services] Security violation: Plugin '${consumerPluginId}' cannot access service '${serviceName}'. Missing dependency '${reg.providerPluginId}' in manifest.dependencies`
+            );
+          }
+
+          // 2. Permission validation: consumer must have permission service:<name> or service.<name> or service:*
+          const hasPerm = consumer.permissions?.some(
+            (p) =>
+              p === `service:${serviceName}` ||
+              p === `service.${serviceName}` ||
+              p === 'service:*'
+          );
+          if (!hasPerm) {
+            throw new Error(
+              `[Services] Security violation: Plugin '${consumerPluginId}' lacks permission 'service:${serviceName}' in manifest.permissions`
+            );
+          }
+
+          // 3. Security Proxy wrapper
+          const target = reg.implementation;
+          return new Proxy(target, {
+            get(obj, prop, receiver) {
+              const orig = Reflect.get(obj, prop, receiver);
+              if (typeof orig === 'function') {
+                return async (...args: any[]) => {
+                  try {
+                    return await orig.apply(obj, args);
+                  } catch (err: any) {
+                    console.error(
+                      `[Services] Error calling ${serviceName}.${String(prop)} from ${consumerPluginId}:`,
+                      err
+                    );
+                    throw err;
+                  }
+                };
+              }
+              return orig;
+            },
+          });
+        },
+
+        has: (serviceName: string) => {
+          return this.registeredServices.has(serviceName);
+        },
+
+        list: () => {
+          return Array.from(this.registeredServices.keys());
+        },
+      },
     };
   }
 
@@ -370,11 +463,54 @@ class PluginLoader {
     if (options.refreshFiles) this.refreshFilesHandler = options.refreshFiles;
   }
 
+  private sortPluginsTopologically(plugins: PluginItem[]): PluginItem[] {
+    const enabledPlugins = plugins.filter((p) => p.enabled);
+    const pluginMap = new Map<string, PluginItem>();
+    for (const p of enabledPlugins) {
+      pluginMap.set(p.id, p);
+    }
+
+    const visited = new Set<string>();
+    const visiting = new Set<string>();
+    const sorted: PluginItem[] = [];
+
+    const visit = (p: PluginItem) => {
+      if (visited.has(p.id)) return;
+      if (visiting.has(p.id)) {
+        console.warn(`[PluginLoader] Cyclic dependency detected for plugin ${p.id}`);
+        return;
+      }
+
+      visiting.add(p.id);
+
+      if (p.dependencies) {
+        for (const depId of Object.keys(p.dependencies)) {
+          const dep = pluginMap.get(depId);
+          if (dep) {
+            visit(dep);
+          }
+        }
+      }
+
+      visiting.delete(p.id);
+      visited.add(p.id);
+      sorted.push(p);
+    };
+
+    for (const p of enabledPlugins) {
+      if (!visited.has(p.id)) {
+        visit(p);
+      }
+    }
+
+    return sorted;
+  }
+
   async loadPlugins(): Promise<PluginItem[]> {
     try {
       this.plugins = await api.getPlugins();
-      for (const p of this.plugins) {
-        if (!p.enabled) continue;
+      const sorted = this.sortPluginsTopologically(this.plugins);
+      for (const p of sorted) {
         await this.injectPluginAssets(p);
       }
       this.notify();
@@ -451,6 +587,14 @@ class PluginLoader {
 
     unregisterPluginLocales(id);
     unregisterLanguagePack(id);
+
+    // Unregister services provided by this plugin
+    for (const [svcName, reg] of this.registeredServices.entries()) {
+      if (reg.providerPluginId === id) {
+        this.registeredServices.delete(svcName);
+        console.log(`[Services] Unregistered service '${svcName}' because provider '${id}' was unloaded`);
+      }
+    }
 
     this.loadedPluginIds.delete(id);
     this.toolbarButtons = this.toolbarButtons.filter((b) => b.pluginId !== id);

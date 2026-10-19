@@ -38,6 +38,8 @@ export interface PluginManifest {
   permissions?: string[];
   fileMatches?: string[];
   minAppVersion?: string;
+  dependencies?: Record<string, string>;
+  providesServices?: string[];
   locales?: Record<string, Record<string, string>>;
   localization?: LanguagePackDef;
 }
@@ -47,12 +49,21 @@ export interface PluginItem extends PluginManifest {
   dir: string;
   installedAt: string;
   builtin?: boolean;
+  dependents?: string[];
+}
+
+export interface DependencyIssue {
+  pluginId: string;
+  required: string;
+  installed?: string;
+  status: 'missing' | 'incompatible' | 'disabled';
 }
 
 export interface PendingInstall {
   tempKey: string;
   manifest: PluginManifest;
   isOfficial: boolean;
+  dependencyIssues?: DependencyIssue[];
   createdAt: string;
 }
 
