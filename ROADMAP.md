@@ -27,7 +27,7 @@
 - [ ] **Безопасное хранилище секретов (OS Keychain / Credential Manager)**:
   - Пароли и приватные ключи никогда не сохраняются в открытом виде в JSON. Интеграция с системным хранилищем учетных данных (Windows Credential Manager / Secret Service / Keychain).
   - В экспортируемом профиле (`config-studio-profile.json`) секреты **по умолчанию исключены**, исключая случайную утечку ключей.
-- [ ] **Безопасная шина межплагинных сервисов (RPC / Proxy Bridge)**:
+- [x] **Безопасная шина межплагинных сервисов (RPC / Proxy Bridge)**:
   - Вызовы сервисов между плагинами валидируются через защищенный мост ядра с проверкой прав вызывающего плагина, исключая подмену учетных данных из стороннего JS-кода.
 
 ### 1.1 🛡️ Глубокая валидация структуры (Structure Guard) & Pre-Save Guard
@@ -306,6 +306,11 @@
 - [x] **v1.1.2 Core Security & Consent Dialog**: Встроенный журнал аудита (бэкенд `internal/audit`, `audit.jsonl`, in-memory ring buffer, UI таб и экспорт), манифест разрешений плагинов (Capabilities: `fs`, `shell`, `network`, `secrets`, `remote`), двухэтапная установка плагинов с изоляцией в `tmpDir` и экраном согласия (`PluginConsentModal`), строгая блокировка деструктивных команд без скрытых автоподтверждений.
 - [x] **v1.1.3 Settings Modal & UI Refinement**: Адаптивный динамический размер окна настроек с отступом 50px от краев экрана, глобальный ErrorBoundary, скачивание логов аудита через webFetch.
 - [x] **v1.2.0 Core Structure Guard & Pre-Save Guard**: Двойная AST-валидация синтаксиса на Go-бэкенде (YAML, JSON, TOML, .ENV, Nginx) для чувствительных сервисов, блокировка битого синтаксиса с HTTP 422, модальное окно PreSaveGuardModal с навигацией по строкам в Monaco, осознанный Force Save с записью инцидентов в Core Audit Log, бейдж Deep Guard в редакторе и настройка пользовательских масок в Settings.
+- [x] **v1.3.0 Profile Portability & Dynamic Sources**: Переносимые источники `plugins/sources.json`, экспорт/импорт профилей без секретов (`config-studio-profile.json`), предпросмотр с чекбоксами и автоустановка плагинов из профиля.
+- [x] **v1.4.0 Action Toolbar & Split Button**: Сплит-кнопка тулбара с F5 и выбором целей, контекстная фильтрация `fileMatches`, Zero-Clutter.
+- [x] **v1.5.0 Bottom Dock Strip**: Постоянная нижняя полоса инструментов с плавным ресайзом, интеграцией со Structure Guard («Проблемы») и аудит-логом («Вывод»), горячими клавишами `Ctrl+~` / `Ctrl+J`.
+- [x] **v1.7.0 Inter-Plugin Services & Dependency Engine**: Декларация зависимостей SemVer, защита от каскадного удаления (HTTP 409 Conflict), DAG топологический порядок инициализации, безопасная Proxy-шина `window.ConfigStudio.services`.
+- [x] **v1.8.0 Plugin i18n & UI Language Packs**: Локализация плагинов `locales/*.json`, языковые пакеты интерфейса (`localization.json`), безопасный fallback и реактивное переключение языков.
 - [x] **config-studio-web-devkit**: HTML/PHP Live Preview, встроенный сервер :8085, сниппеты Monaco.
 - [x] **config-studio-remote-agent**: Мультисерверное переключение хостов из шапки редактора.
 - [x] **config-studio-plugin-docs**: Официальная документация API, спецификация манифеста и TypeScript SDK.
@@ -315,32 +320,34 @@
   - [x] Встроенный журнал аудита (Core Audit Log) для фиксации всех критических операций (сохранение, SSH, deploy, MCP).
   - [x] Манифест разрешений (Capabilities: `fs`, `shell`, `secrets`, `remote`) и экран согласия (Consent Dialog).
   - [ ] Безопасное хранилище секретов (OS Keychain / Credential Manager, исключение из экспорта).
-  - [ ] Защищенный RPC/Proxy мост межплагинных сервисов.
+  - [x] Защищенный RPC/Proxy мост межплагинных сервисов.
 - [x] **1.1 Core Config Guard & Pre-Save Guard**:
   - [x] Гибридная валидация: клиентская для обычных файлов vs двойная (Клиент + Go AST ядро) для чувствительных.
   - [x] Детекция чувствительных сервисов (пресеты docker-compose/nginx/systemd + маски в настройках + UI-бейджик 🛡️).
   - [x] Строгая синтаксическая валидация отступов и скобок (YAML, TOML, JSON, INI, ENV).
   - [x] Pre-save Guard: разделение на Syntax Error vs Warning, модалка с отдельной кнопкой «Force Save».
   - [x] Фиксация принудительного сохранения (Force Save) в Core Audit Log.
-- [ ] **1.2 Core Templates & Dictionaries**:
-  - [ ] Базовые словари (порты, булевы типы, пути, `${ENV}`).
-  - [ ] Чистые шаблоны при создании файлов (`.env`, `config.yaml`, `config.toml`, `nginx.conf`).
-- [ ] **1.3 Portability & Sources**:
-  - [ ] Файл доверенных источников `plugins/sources.json`.
-  - [ ] Экспорт/импорт профиля в 1 клик (`config-studio-profile.json` без секретов).
-  - [ ] Разделение каталога на `official` и `community` в `registry.json`.
-- [ ] **1.4 1-Click Action Toolbar API**:
-  - [ ] Архитектурная поддержка Split Action Button `[ ▶ Run: build | ▾ ]` в ядре.
-  - [ ] Строгая контекстная фильтрация кнопок плагинов по `fileMatches`.
-  - [ ] Горячие клавиши для нулевых кликов (`F5`, `Ctrl+Shift+B` и др.).
-- [ ] **1.5 Visible Bottom Dock Strip**:
-  - [ ] Постоянная нижняя полоса с явными названиями `[ ⌨️ Терминал ]`, `[ 🐳 Docker Logs ]`, `[ 📋 Вывод ]`.
-  - [ ] Открытие и сворачивание в 1 клик, сплиттер ресайза высоты и шорткат `Ctrl+` ` / `Ctrl+J`.
-- [ ] **1.6 Context Menu Provider**: Слот расширения контекстного меню проводника файлов.
-- [ ] **1.7 Plugin Dependencies & Inter-Plugin Services**:
-  - [ ] Автоматическая проверка и установка зависимостей из манифеста `dependencies`.
-  - [ ] Защита от каскадного удаления и топологический порядок загрузки (DAG).
-  - [ ] Защищенная шина межплагинных сервисов через RPC/Proxy ядро.
+- [x] **1.2 Core Templates & Dictionaries (Lean Core Architecture)**:
+  - [x] Архитектурное решение Lean Core: базовые шаблоны и словари вынесены в специализированные плагины (`docker`, `nginx`, `web-devkit`) во избежание раздувания ядра.
+- [x] **1.3 Portability & Sources**:
+  - [x] Файл доверенных источников `plugins/sources.json`.
+  - [x] Экспорт/импорт профиля в 1 клик (`config-studio-profile.json` без секретов).
+  - [x] Разделение каталога на `official` и `community` в `sources.json` и сводном кэше.
+- [x] **1.4 1-Click Action Toolbar API**:
+  - [x] Архитектурная поддержка Split Action Button `[ ▶ Run: build | ▾ ]` в ядре.
+  - [x] Строгая контекстная фильтрация кнопок плагинов по `fileMatches` (Zero-Clutter).
+  - [x] Горячие клавиши для нулевых кликов (`F5`).
+- [x] **1.5 Visible Bottom Dock Strip**:
+  - [x] Постоянная нижняя полоса с явными вкладками (`[ 🔍 Проблемы ]`, `[ 📋 Вывод ]`, `[ 🐳 Плагины ]`).
+  - [x] Открытие и сворачивание в 1 клик, сплиттер ресайза высоты и шорткат `Ctrl+~` / `Ctrl+J`.
+- [ ] **1.6 Context Menu Provider**: Слот расширения контекстного меню проводника файлов (`window.ConfigStudio.registerContextMenu`).
+- [x] **1.7 Plugin Dependencies & Inter-Plugin Services**:
+  - [x] Автоматическая проверка и установка зависимостей из манифеста `dependencies`.
+  - [x] Защита от каскадного удаления (Cascade Protection) и топологический порядок загрузки (DAG).
+  - [x] Защищенная шина межплагинных сервисов через RPC/Proxy ядро (`window.ConfigStudio.services`).
+- [x] **1.8 Plugin i18n & UI Language Packs**:
+  - [x] Автономная локализация плагинов (`locales/*.json` и `locales` в `plugin.json`).
+  - [x] Плагины полной локализации интерфейса (UI Language Packs: `localization.json`).
 
 ### 🖧 ФАЗА 2A: Системное администрирование и инфраструктура (Sysadmin & Fleet)
 - [ ] **config-studio-ssh**:
