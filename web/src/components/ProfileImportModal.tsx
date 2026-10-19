@@ -18,7 +18,7 @@ interface ProfileImportModalProps {
   isOpen: boolean;
   preview: ProfilePreview | null;
   isImporting?: boolean;
-  language?: 'ru' | 'en';
+  language?: string;
   onClose: () => void;
   onConfirm: (options: {
     applySettings: boolean;

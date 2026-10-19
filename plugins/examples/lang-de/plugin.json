@@ -1,0 +1,79 @@
+{
+  "id": "lang-de",
+  "name": "German Language Pack",
+  "version": "1.0.0",
+  "description": "Deutsche Benutzeroberfläche für Config Studio",
+  "author": "Community & Config Studio Team",
+  "icon": "globe",
+  "entry": "main.js",
+  "permissions": [],
+  "localization": {
+    "code": "de",
+    "name": "Deutsch",
+    "flag": "🇩🇪",
+    "translations": {
+      "appTitle": "Config Studio",
+      "appTitleHelp": "Ändert den Titel in der Kopfzeile und den Browsertab.",
+      "settings": "Einstellungen",
+      "settingsTitle": "Anwendungs- & Designeinstellungen",
+      "applyChanges": "Änderungen anwenden",
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "saving": "Speichern...",
+      "saved": "Gespeichert",
+      "download": "Herunterladen",
+      "fileExplorer": "Datei-Explorer",
+      "newFile": "Neue Datei",
+      "newFolder": "Neuer Ordner",
+      "refresh": "Aktualisieren",
+      "emptyFolder": "Ordner ist leer",
+      "dropFiles": "Dateien hierher ziehen",
+      "clickToUpload": "oder zum Hochladen klicken",
+      "rename": "Umbenennen",
+      "delete": "Löschen",
+      "deleteConfirm": "Möchten Sie \"{name}\" wirklich löschen?",
+      "theme": "Design",
+      "themeDark": "Dunkel",
+      "themeLight": "Hell",
+      "language": "Oberflächensprache",
+      "tabGeneral": "Erscheinungsbild",
+      "tabSecurity": "Sicherheit",
+      "tabPlugins": "Erweiterungen",
+      "tabAudit": "Audit-Protokoll",
+      "authSettings": "Sicherheit & API",
+      "enableAuth": "Passwortschutz aktivieren (Direct Login)",
+      "enableApi": "REST-API-Zugriff erlauben",
+      "apiKey": "Geheimer API-Schlüssel (X-API-Key)",
+      "generateApiKey": "Neuen Schlüssel generieren",
+      "pluginsTitle": "Erweiterungsverwaltung",
+      "pluginsInstalled": "Installierte Erweiterungen",
+      "pluginsCatalog": "Offizieller Katalog",
+      "pluginsSources": "Quellen & Repositories",
+      "exportProfile": "Profil exportieren",
+      "importProfile": "Profil importieren",
+      "auditTitle": "System-Audit-Protokoll",
+      "auditExport": "Protokoll exportieren (.jsonl)",
+      "auditSeverityAll": "Alle Stufen",
+      "dockModeHidden": "Ausgeblendet",
+      "dockModeHiddenDesc": "Leiste nur manuell öffnen",
+      "dockModeAuto": "Automatisch",
+      "dockModeAutoDesc": "Öffnen bei Fehlern oder Ausgabe",
+      "dockModeAlways": "Immer sichtbar",
+      "dockModeAlwaysDesc": "Unterleiste immer anzeigen"
+    }
+  },
+  "locales": {
+    "ru": {
+      "name": "Немецкий языковой пакет",
+      "description": "Полная локализация интерфейса Config Studio на немецкий язык (Deutsch)"
+    },
+    "en": {
+      "name": "German Language Pack",
+      "description": "Complete German UI localization for Config Studio"
+    },
+    "de": {
+      "name": "Deutsches Sprachpaket",
+      "description": "Vollständige deutsche Benutzeroberfläche für Config Studio"
+    }
+  }
+}

@@ -26,7 +26,7 @@ interface BottomDockStripProps {
   guardResult: GuardValidationResult | null;
   currentFile: OpenFile | null;
   cursorPos?: { line: number; col: number };
-  language?: 'ru' | 'en';
+  language?: string;
   onToggleOpen: (open?: boolean) => void;
   onSelectPanel: (panelId: string) => void;
   onClosePanel: (panelId: string) => void;

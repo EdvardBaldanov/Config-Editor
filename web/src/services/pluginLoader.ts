@@ -8,6 +8,14 @@ import {
   ProcessInfo,
   OutlineNode,
 } from '../types';
+import {
+  registerPluginLocales,
+  unregisterPluginLocales,
+  getPluginT,
+  registerLanguagePack,
+  unregisterLanguagePack,
+  LanguagePack,
+} from '../utils/i18n';
 
 export interface BottomPanelDef {
   id: string;
@@ -42,6 +50,8 @@ class PluginLoader {
   private headerItems: HeaderItemDef[] = [];
   private activeSplitPanelId: string | null = null;
   private activeBottomPanelId: string | null = null;
+  private currentLanguage: string = 'ru';
+  private languageChangeCallbacks: Set<(lang: string) => void> = new Set();
 
   private onFileOpenCallbacks: Array<(file: OpenFile) => void> = [];
   private onFileSaveCallbacks: Array<(file: OpenFile) => void> = [];
@@ -283,7 +293,63 @@ class PluginLoader {
       stopProcess: async (procId: string) => {
         await api.stopPluginProcess(procId);
       },
+
+      getLanguage: () => this.currentLanguage,
+      i18n: {
+        getLanguage: () => this.currentLanguage,
+        onLanguageChange: (cb: (lang: string) => void) => {
+          this.languageChangeCallbacks.add(cb);
+          try {
+            cb(this.currentLanguage);
+          } catch (e) {
+            console.error(e);
+          }
+          return () => this.languageChangeCallbacks.delete(cb);
+        },
+        registerLocales: (pluginId: string, locales: Record<string, Record<string, string>>) => {
+          registerPluginLocales(pluginId, locales);
+        },
+        registerLanguagePack: (pack: LanguagePack) => {
+          registerLanguagePack(pack);
+        },
+        t: (pluginId: string, key: string, fallback?: string, params?: Record<string, any>) => {
+          return getPluginT(pluginId, this.currentLanguage)(key, fallback, params);
+        },
+        scoped: (pluginId: string) => {
+          return {
+            t: (key: string, fallback?: string, params?: Record<string, any>) =>
+              getPluginT(pluginId, this.currentLanguage)(key, fallback, params),
+            getLanguage: () => this.currentLanguage,
+            onLanguageChange: (cb: (lang: string) => void) => {
+              this.languageChangeCallbacks.add(cb);
+              try {
+                cb(this.currentLanguage);
+              } catch (e) {
+                console.error(e);
+              }
+              return () => this.languageChangeCallbacks.delete(cb);
+            },
+          };
+        },
+      },
     };
+  }
+
+  setLanguage(lang: string) {
+    if (this.currentLanguage !== lang) {
+      this.currentLanguage = lang;
+      this.languageChangeCallbacks.forEach((cb) => {
+        try {
+          cb(lang);
+        } catch (e) {
+          console.error('[PluginLoader] Error in languageChange callback:', e);
+        }
+      });
+    }
+  }
+
+  getLanguage(): string {
+    return this.currentLanguage;
   }
 
   init(options: {
@@ -320,6 +386,21 @@ class PluginLoader {
   }
 
   private async injectPluginAssets(p: PluginItem) {
+    // 0. Auto-register plugin locales if present in manifest
+    if (p.locales) {
+      registerPluginLocales(p.id, p.locales);
+    }
+    // Auto-register core UI language pack if defined
+    if (p.localization && p.localization.code) {
+      registerLanguagePack({
+        code: p.localization.code,
+        name: p.localization.name,
+        flag: p.localization.flag,
+        pluginId: p.id,
+        translations: p.localization.translations || {},
+      });
+    }
+
     // 1. Inject CSS if defined
     if (p.css) {
       const cssId = `plugin-css-${p.id}`;
@@ -367,6 +448,9 @@ class PluginLoader {
   removePluginAssets(id: string) {
     const css = document.getElementById(`plugin-css-${id}`);
     if (css) css.remove();
+
+    unregisterPluginLocales(id);
+    unregisterLanguagePack(id);
 
     this.loadedPluginIds.delete(id);
     this.toolbarButtons = this.toolbarButtons.filter((b) => b.pluginId !== id);

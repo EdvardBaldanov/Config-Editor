@@ -2,20 +2,30 @@ package plugin
 
 import "time"
 
+// LanguagePackDef defines a full core UI language pack contributed by a plugin.
+type LanguagePackDef struct {
+	Code         string            `json:"code"`                   // e.g. "de", "zh", "es", "fr"
+	Name         string            `json:"name"`                   // e.g. "Deutsch", "中文"
+	Flag         string            `json:"flag,omitempty"`         // e.g. "🇩🇪", "🇨🇳"
+	Translations map[string]string `json:"translations,omitempty"` // Core UI translations dictionary
+}
+
 // Manifest defines the structure of plugin.json inside a plugin directory.
 type Manifest struct {
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	Version       string   `json:"version"`
-	Description   string   `json:"description"`
-	Author        string   `json:"author,omitempty"`
-	Homepage      string   `json:"homepage,omitempty"`
-	Icon          string   `json:"icon,omitempty"`          // Lucide icon name or svg
-	Entry         string   `json:"entry"`                   // e.g. "main.js"
-	CSS           string   `json:"css,omitempty"`           // optional "style.css"
-	Permissions   []string `json:"permissions,omitempty"`   // e.g. ["ui.panels", "terminal.exec", "network.bind"]
-	FileMatches   []string `json:"fileMatches,omitempty"`   // e.g. [".html", ".php", ".js"]
-	MinAppVersion string   `json:"minAppVersion,omitempty"`
+	ID            string                       `json:"id"`
+	Name          string                       `json:"name"`
+	Version       string                       `json:"version"`
+	Description   string                       `json:"description"`
+	Author        string                       `json:"author,omitempty"`
+	Homepage      string                       `json:"homepage,omitempty"`
+	Icon          string                       `json:"icon,omitempty"`          // Lucide icon name or svg
+	Entry         string                       `json:"entry"`                   // e.g. "main.js"
+	CSS           string                       `json:"css,omitempty"`           // optional "style.css"
+	Permissions   []string                     `json:"permissions,omitempty"`   // e.g. ["ui.panels", "terminal.exec", "network.bind"]
+	FileMatches   []string                     `json:"fileMatches,omitempty"`   // e.g. [".html", ".php", ".js"]
+	MinAppVersion string                       `json:"minAppVersion,omitempty"`
+	Locales       map[string]map[string]string `json:"locales,omitempty"`      // Per-language dictionary for plugin's own UI
+	Localization  *LanguagePackDef             `json:"localization,omitempty"` // For Core UI language pack plugins
 }
 
 // Plugin represents an installed plugin and its runtime state.

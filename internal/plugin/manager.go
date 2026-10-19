@@ -74,6 +74,53 @@ func (m *Manager) saveState() error {
 	return os.WriteFile(m.stateFilePath(), data, 0644)
 }
 
+// enrichManifestLocales populates and merges locales and language packs from the plugin directory.
+func enrichManifestLocales(manifest *Manifest, pluginDir string) {
+	if manifest.Locales == nil {
+		manifest.Locales = make(map[string]map[string]string)
+	}
+
+	// 1. Scan locales/ folder if present (e.g. locales/ru.json, locales/en.json, locales/de.json)
+	localesDir := filepath.Join(pluginDir, "locales")
+	if stat, err := os.Stat(localesDir); err == nil && stat.IsDir() {
+		files, _ := os.ReadDir(localesDir)
+		for _, f := range files {
+			if !f.IsDir() && strings.HasSuffix(strings.ToLower(f.Name()), ".json") {
+				langCode := strings.TrimSuffix(strings.ToLower(f.Name()), ".json")
+				content, err := os.ReadFile(filepath.Join(localesDir, f.Name()))
+				if err == nil {
+					var dict map[string]string
+					if err := json.Unmarshal(content, &dict); err == nil && len(dict) > 0 {
+						if manifest.Locales[langCode] == nil {
+							manifest.Locales[langCode] = dict
+						} else {
+							for k, v := range dict {
+								manifest.Locales[langCode][k] = v
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Check if a dedicated localization.json exists for a full language pack plugin
+	if manifest.Localization == nil {
+		locPackFile := filepath.Join(pluginDir, "localization.json")
+		if content, err := os.ReadFile(locPackFile); err == nil {
+			var pack LanguagePackDef
+			if err := json.Unmarshal(content, &pack); err == nil && pack.Code != "" {
+				manifest.Localization = &pack
+			}
+		}
+	}
+
+	// If Locales map ended up completely empty, clean it up to avoid empty {} in JSON
+	if len(manifest.Locales) == 0 {
+		manifest.Locales = nil
+	}
+}
+
 // ListPlugins scans the plugins directory and returns all installed plugins.
 func (m *Manager) ListPlugins() ([]Plugin, error) {
 	m.mu.RLock()
@@ -108,6 +155,8 @@ func (m *Manager) ListPlugins() ([]Plugin, error) {
 		if manifest.ID == "" {
 			manifest.ID = entry.Name()
 		}
+
+		enrichManifestLocales(&manifest, pDir)
 
 		enabled, ok := m.state[manifest.ID]
 		if !ok {
@@ -203,6 +252,7 @@ func (m *Manager) getPluginLocked(id string) (*Plugin, error) {
 			continue
 		}
 		if manifest.ID == id || entry.Name() == id {
+			enrichManifestLocales(&manifest, pDir)
 			return &Plugin{
 				Manifest: manifest,
 				Dir:      pDir,
@@ -304,6 +354,9 @@ func (m *Manager) InspectZip(r io.Reader, size int64, sourceURL string) (*Pendin
 		return nil, errors.New("plugin.json is missing 'id' field")
 	}
 
+	pluginDir := filepath.Dir(manifestPath)
+	enrichManifestLocales(&manifest, pluginDir)
+
 	// Determine if official
 	isOfficial := false
 	authorLower := strings.ToLower(manifest.Author)
@@ -317,7 +370,7 @@ func (m *Manager) InspectZip(r io.Reader, size int64, sourceURL string) (*Pendin
 		Manifest:   manifest,
 		IsOfficial: isOfficial,
 		TempDir:    tmpDir,
-		PluginDir:  filepath.Dir(manifestPath),
+		PluginDir:  pluginDir,
 		CreatedAt:  time.Now(),
 	}
 

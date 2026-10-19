@@ -15,6 +15,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { PendingInstall } from '../types';
+import { getPluginName, getPluginDescription } from '../utils/i18n';
 
 interface PluginConsentModalProps {
   pending: PendingInstall | null;
@@ -22,6 +23,7 @@ interface PluginConsentModalProps {
   onClose: () => void;
   onConfirm: () => Promise<void>;
   isConfirming: boolean;
+  language?: string;
 }
 
 interface PermMeta {
@@ -32,74 +34,89 @@ interface PermMeta {
   icon: React.ReactNode;
 }
 
-function getPermissionMeta(perm: string): PermMeta {
+function getPermissionMeta(perm: string, lang: string = 'ru'): PermMeta {
+  const isEn = lang === 'en';
   switch (perm.toLowerCase()) {
     case 'fs.read':
       return {
-        label: 'Чтение файлов проекта',
-        desc: 'Просмотр содержимого конфигураций и файлов в рабочей директории',
+        label: isEn ? 'Read project files' : 'Чтение файлов проекта',
+        desc: isEn
+          ? 'View configuration and file contents in the working directory'
+          : 'Просмотр содержимого конфигураций и файлов в рабочей директории',
         risk: 'low',
-        riskLabel: 'Низкий риск',
+        riskLabel: isEn ? 'Low risk' : 'Низкий риск',
         icon: <FileText size={16} className="text-blue-400" />,
       };
     case 'fs.write':
       return {
-        label: 'Запись и изменение файлов',
-        desc: 'Создание, редактирование и перезапись файлов конфигурации',
+        label: isEn ? 'Write & modify files' : 'Запись и изменение файлов',
+        desc: isEn
+          ? 'Create, edit, and overwrite configuration files'
+          : 'Создание, редактирование и перезапись файлов конфигурации',
         risk: 'medium',
-        riskLabel: 'Средний риск',
+        riskLabel: isEn ? 'Medium risk' : 'Средний риск',
         icon: <Edit3 size={16} className="text-amber-400" />,
       };
     case 'shell.exec':
     case 'terminal.exec':
       return {
-        label: 'Выполнение консольных команд на хосте',
-        desc: 'Запуск CLI-утилит (make, docker, git) и системных процессов в ОС',
+        label: isEn ? 'Execute host terminal commands' : 'Выполнение консольных команд на хосте',
+        desc: isEn
+          ? 'Run CLI utilities (make, docker, git) and OS processes'
+          : 'Запуск CLI-утилит (make, docker, git) и системных процессов в ОС',
         risk: 'critical',
-        riskLabel: 'Высокий риск',
+        riskLabel: isEn ? 'High risk' : 'Высокий риск',
         icon: <Terminal size={16} className="text-rose-400" />,
       };
     case 'remote.exec':
       return {
-        label: 'Удаленное выполнение команд (SSH)',
-        desc: 'Инициация команд и синхронизация конфигов на удаленных серверах',
+        label: isEn ? 'Remote command execution (SSH)' : 'Удаленное выполнение команд (SSH)',
+        desc: isEn
+          ? 'Initiate commands and sync configs on remote servers'
+          : 'Инициация команд и синхронизация конфигов на удаленных серверах',
         risk: 'critical',
-        riskLabel: 'Высокий риск',
+        riskLabel: isEn ? 'High risk' : 'Высокий риск',
         icon: <Server size={16} className="text-rose-400" />,
       };
     case 'network':
     case 'network.bind':
       return {
-        label: 'Сетевой доступ и локальные серверы',
-        desc: 'Запуск встроенных веб-серверов и отправка сетевых запросов',
+        label: isEn ? 'Network access & local servers' : 'Сетевой доступ и локальные серверы',
+        desc: isEn
+          ? 'Start embedded web servers and send network requests'
+          : 'Запуск встроенных веб-серверов и отправка сетевых запросов',
         risk: 'medium',
-        riskLabel: 'Средний риск',
+        riskLabel: isEn ? 'Medium risk' : 'Средний риск',
         icon: <Globe size={16} className="text-amber-400" />,
       };
     case 'secrets':
     case 'secrets.access':
       return {
-        label: 'Доступ к защищенным учетным данным',
-        desc: 'Чтение токенов, ключей доступа и SSH-паролей',
+        label: isEn ? 'Access protected credentials' : 'Доступ к защищенным учетным данным',
+        desc: isEn
+          ? 'Read tokens, access keys, and SSH passwords'
+          : 'Чтение токенов, ключей доступа и SSH-паролей',
         risk: 'critical',
-        riskLabel: 'Критический риск',
+        riskLabel: isEn ? 'Critical risk' : 'Критический риск',
         icon: <Key size={16} className="text-rose-400" />,
       };
     default:
       if (perm.startsWith('ui.')) {
         return {
-          label: `Интерфейс: ${perm}`,
-          desc: 'Встраивание панелей, кнопок и вкладок в интерфейс Config Studio',
+          label: isEn ? `Interface: ${perm}` : `Интерфейс: ${perm}`,
+          desc: isEn
+            ? 'Embed panels, buttons, and tabs into Config Studio UI'
+            : 'Встраивание панелей, кнопок и вкладок в интерфейс Config Studio',
           risk: 'safe',
-          riskLabel: 'Безопасно',
+          riskLabel: isEn ? 'Safe' : 'Безопасно',
           icon: <Layers size={16} className="text-emerald-400" />,
         };
       }
       return {
         label: perm,
-        desc: 'Дополнительное расширение возможностей редактора',
+        desc: isEn ? 'Additional editor functionality' : 'Дополнительное расширение возможностей редактора',
         risk: 'low',
-        riskLabel: 'Низкий риск',
+        riskLabel: isEn ? 'Low risk' : 'Низкий риск',
         icon: <HelpCircle size={16} className="text-gray-400" />,
       };
   }
@@ -111,12 +128,14 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
   onClose,
   onConfirm,
   isConfirming,
+  language = 'ru',
 }) => {
   if (!isOpen || !pending) return null;
 
+  const isEn = language === 'en';
   const permissions = pending.manifest.permissions || [];
   const hasCritical = permissions.some((p) => {
-    const meta = getPermissionMeta(p);
+    const meta = getPermissionMeta(p, language);
     return meta.risk === 'critical';
   });
 
@@ -139,10 +158,12 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-semibold text-gray-100">
-                Запрос разрешений плагина
+                {isEn ? 'Plugin Permission Request' : 'Запрос разрешений плагина'}
               </h2>
               <p className="text-xs text-gray-400">
-                Проверьте запрашиваемые права перед установкой в Config Studio
+                {isEn
+                  ? 'Review requested permissions before installing in Config Studio'
+                  : 'Проверьте запрашиваемые права перед установкой в Config Studio'}
               </p>
             </div>
           </div>
@@ -163,7 +184,7 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-gray-100 text-base">
-                    {pending.manifest.name}
+                    {getPluginName(pending.manifest, language)}
                   </span>
                   <span className="px-1.5 py-0.5 rounded text-[11px] bg-gray-800 text-gray-300 font-mono">
                     v{pending.manifest.version}
@@ -171,7 +192,7 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
                 </div>
                 {pending.manifest.author && (
                   <div className="text-xs text-gray-400 mt-0.5">
-                    Автор:{' '}
+                    {isEn ? 'Author:' : 'Автор:'}{' '}
                     <span className="text-gray-300 font-medium">
                       {pending.manifest.author}
                     </span>
@@ -194,13 +215,15 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
 
             {pending.manifest.description && (
               <p className="text-xs text-gray-400 leading-relaxed pt-1">
-                {pending.manifest.description}
+                {getPluginDescription(pending.manifest, language)}
               </p>
             )}
 
             {pending.manifest.fileMatches && pending.manifest.fileMatches.length > 0 && (
               <div className="flex items-center gap-1.5 pt-2 text-xs text-gray-400">
-                <span className="text-gray-400">Ассоциации файлов:</span>
+                <span className="text-gray-400">
+                  {isEn ? 'File associations:' : 'Ассоциации файлов:'}
+                </span>
                 <div className="flex flex-wrap gap-1">
                   {pending.manifest.fileMatches.map((m) => (
                     <span
@@ -219,11 +242,11 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
-                Запрашиваемые возможности ({permissions.length})
+                {isEn ? `Requested capabilities (${permissions.length})` : `Запрашиваемые возможности (${permissions.length})`}
               </h3>
               {hasCritical && (
                 <span className="text-[11px] font-medium text-rose-400 flex items-center gap-1">
-                  <AlertTriangle size={12} /> Требуется внимание
+                  <AlertTriangle size={12} /> {isEn ? 'Attention required' : 'Требуется внимание'}
                 </span>
               )}
             </div>
@@ -231,12 +254,16 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
             {permissions.length === 0 ? (
               <div className="p-3 bg-gray-800/40 border border-gray-800 rounded-lg text-xs text-gray-400 flex items-center gap-2">
                 <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
-                <span>Плагин не требует системных привилегий (только визуальный интерфейс).</span>
+                <span>
+                  {isEn
+                    ? 'Plugin requires no system permissions (visual UI only).'
+                    : 'Плагин не требует системных привилегий (только визуальный интерфейс).'}
+                </span>
               </div>
             ) : (
               <div className="space-y-2">
                 {permissions.map((p) => {
-                  const meta = getPermissionMeta(p);
+                  const meta = getPermissionMeta(p, language);
                   return (
                     <div
                       key={p}
@@ -279,8 +306,9 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
             <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-lg flex items-start gap-2.5">
               <AlertTriangle size={16} className="text-rose-400 shrink-0 mt-0.5" />
               <div className="text-xs text-rose-300 leading-relaxed">
-                Плагин запрашивает расширенные права на исполнение команд в системе хоста.
-                Устанавливайте этот плагин только в том случае, если вы доверяете источнику и понимаете последствия.
+                {isEn
+                  ? 'This plugin requests elevated permissions to execute host commands. Only install if you trust the source.'
+                  : 'Плагин запрашивает расширенные права на исполнение команд в системе хоста. Устанавливайте этот плагин только в том случае, если вы доверяете источнику и понимаете последствия.'}
               </div>
             </div>
           )}
@@ -289,7 +317,9 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
             <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-2 text-xs text-amber-300/90">
               <AlertTriangle size={15} className="shrink-0 mt-0.5 text-amber-400" />
               <span>
-                Плагин разработан сторонним автором и не входит в официальный каталог верифицированных расширений.
+                {isEn
+                  ? 'This plugin is by a third-party author and is not in the verified official catalog.'
+                  : 'Плагин разработан сторонним автором и не входит в официальный каталог верифицированных расширений.'}
               </span>
             </div>
           )}
@@ -303,7 +333,7 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
             disabled={isConfirming}
             className="px-4 py-2 rounded-lg text-xs font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors"
           >
-            Отклонить
+            {isEn ? 'Reject' : 'Отклонить'}
           </button>
 
           <button
@@ -319,11 +349,11 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
             {isConfirming ? (
               <>
                 <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Установка...</span>
+                <span>{isEn ? 'Installing...' : 'Установка...'}</span>
               </>
             ) : (
               <>
-                <span>Разрешить и установить</span>
+                <span>{isEn ? 'Allow & Install' : 'Разрешить и установить'}</span>
               </>
             )}
           </button>

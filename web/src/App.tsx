@@ -149,6 +149,13 @@ export const App: React.FC = () => {
     }
   }, [currentFile?.path]);
 
+  // Sync active language to plugin manager
+  useEffect(() => {
+    if (settings.language) {
+      pluginManager.setLanguage(settings.language);
+    }
+  }, [settings.language]);
+
   const checkAuthAndInit = async () => {
     try {
       const status = await api.getAuthStatus();

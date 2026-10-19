@@ -34,7 +34,15 @@ import {
   Plus,
 } from 'lucide-react';
 import { Settings, PluginItem, AuditEvent, PendingInstall, PluginSource, ProfilePreview } from '../types';
-import { translations, Language } from '../utils/i18n';
+import {
+  translations,
+  Language,
+  getAvailableLanguages,
+  subscribeLanguages,
+  LanguageMeta,
+  getPluginName,
+  getPluginDescription,
+} from '../utils/i18n';
 import { copyToClipboard } from '../utils/color';
 import { api } from '../services/api';
 import { pluginManager } from '../services/pluginLoader';
@@ -78,6 +86,7 @@ interface CatalogPlugin {
   icon: string;
   repoUrl: string;
   tags: string[];
+  locales?: Record<string, { name?: string; description?: string }>;
 }
 
 const OFFICIAL_CATALOG: CatalogPlugin[] = [
@@ -85,7 +94,17 @@ const OFFICIAL_CATALOG: CatalogPlugin[] = [
     id: 'web-devkit',
     name: 'Web DevKit',
     version: '1.1.0',
-    description: 'Живой Split-Screen предпросмотр HTML/PHP, симуляция экранов устройств, веб-сервер :8085 и автодополнение Monaco.',
+    description: 'Live Split-Screen preview for HTML/PHP, device responsive simulation, built-in :8085 web server and Monaco autocompletion.',
+    locales: {
+      ru: {
+        name: 'Web DevKit',
+        description: 'Живой Split-Screen предпросмотр HTML/PHP, симуляция экранов устройств, веб-сервер :8085 и автодополнение Monaco.',
+      },
+      en: {
+        name: 'Web DevKit',
+        description: 'Live Split-Screen preview for HTML/PHP, device responsive simulation, built-in :8085 web server and Monaco autocompletion.',
+      },
+    },
     icon: '🌐',
     repoUrl: 'https://github.com/EdvardBaldanov/config-studio-web-devkit',
     tags: ['HTML', 'PHP', 'Live Preview', 'Server'],
@@ -94,10 +113,43 @@ const OFFICIAL_CATALOG: CatalogPlugin[] = [
     id: 'remote-agent',
     name: 'Remote Server Agent',
     version: '1.1.0',
-    description: 'Управление парком удаленных серверов (VPS, хосты) и мгновенное переключение между ними из шапки редактора.',
+    description: 'Manage and seamlessly switch between remote servers (VPS, host instances) directly from the editor header.',
+    locales: {
+      ru: {
+        name: 'Remote Server Agent',
+        description: 'Управление парком удаленных серверов (VPS, хосты) и мгновенное переключение между ними из шапки редактора.',
+      },
+      en: {
+        name: 'Remote Server Agent',
+        description: 'Manage and seamlessly switch between remote servers (VPS, host instances) directly from the editor header.',
+      },
+    },
     icon: '🖥️',
     repoUrl: 'https://github.com/EdvardBaldanov/config-studio-remote-agent',
     tags: ['Multi-Server', 'VPS', 'Agent', 'Remote'],
+  },
+  {
+    id: 'lang-de',
+    name: 'Deutsch Sprachpaket',
+    version: '1.0.0',
+    description: 'Deutsche Lokalisierung für die gesamte Benutzeroberfläche von Config Studio.',
+    locales: {
+      ru: {
+        name: 'Немецкий языковой пакет',
+        description: 'Полная локализация интерфейса Config Studio на немецкий язык (German UI Language Pack).',
+      },
+      en: {
+        name: 'German Language Pack',
+        description: 'Complete German UI localization for Config Studio.',
+      },
+      de: {
+        name: 'Deutsch Sprachpaket',
+        description: 'Deutsche Lokalisierung für die gesamte Benutzeroberfläche von Config Studio.',
+      },
+    },
+    icon: '🇩🇪',
+    repoUrl: 'https://github.com/EdvardBaldanov/config-studio-lang-de',
+    tags: ['Localization', 'Language', 'German', 'Deutsch'],
   },
 ];
 
@@ -127,6 +179,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [accentColor, setAccentColor] = useState(settings.accentColor);
   const [themeMode, setThemeMode] = useState(settings.themeMode);
   const [language, setLanguage] = useState<Language>(settings.language || 'ru');
+  const [availableLanguages, setAvailableLanguages] = useState<LanguageMeta[]>(getAvailableLanguages());
+
+  useEffect(() => {
+    return subscribeLanguages(() => {
+      setAvailableLanguages(getAvailableLanguages());
+    });
+  }, []);
+
   const [bottomDockMode, setBottomDockMode] = useState<'auto' | 'always' | 'hidden'>(
     settings.bottomDockMode || 'auto'
   );
@@ -731,29 +791,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Globe className="w-4 h-4 text-accent" />
                 <span>{t.language}</span>
               </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setLanguage('ru')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
-                    language === 'ru'
-                      ? 'border-accent bg-accent/15 text-accent shadow-sm'
-                      : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  <span>🇷🇺 Русский</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLanguage('en')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
-                    language === 'en'
-                      ? 'border-accent bg-accent/15 text-accent shadow-sm'
-                      : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  <span>🇬🇧 English</span>
-                </button>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {availableLanguages.map((l) => (
+                  <button
+                    key={l.code}
+                    type="button"
+                    onClick={() => setLanguage(l.code)}
+                    className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between space-x-2 transition-all cursor-pointer ${
+                      language === l.code
+                        ? 'border-accent bg-accent/15 text-accent shadow-sm'
+                        : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <span className="flex items-center space-x-1.5 truncate">
+                      <span>{l.flag}</span>
+                      <span className="truncate">{l.name}</span>
+                    </span>
+                    {l.isPlugin && (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-400 font-mono shrink-0">
+                        Pack
+                      </span>
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -1179,7 +1239,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2">
                           <span className="font-semibold text-xs text-gray-900 dark:text-white">
-                            {p.name}
+                            {getPluginName(p, language)}
                           </span>
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-base-border text-gray-400 font-mono">
                             v{p.version}
@@ -1192,7 +1252,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
 
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                          {p.description}
+                          {getPluginDescription(p, language)}
                         </p>
 
                         <div className="flex flex-wrap items-center gap-1.5 mt-2">
@@ -1292,6 +1352,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="grid grid-cols-1 gap-2.5">
                 {OFFICIAL_CATALOG.map((item) => {
                   const isInstalled = pluginsList.some((p) => p.id === item.id);
+                  const catalogName = item.locales?.[language]?.name || item.locales?.en?.name || item.name;
+                  const catalogDesc = item.locales?.[language]?.description || item.locales?.en?.description || item.description;
                   return (
                     <div
                       key={item.id}
@@ -1301,7 +1363,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div className="flex items-center space-x-2">
                           <span className="text-base">{item.icon}</span>
                           <span className="font-semibold text-xs text-gray-900 dark:text-white">
-                            {item.name}
+                            {catalogName}
                           </span>
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-base-border text-gray-400 font-mono">
                             v{item.version}
@@ -1309,7 +1371,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
 
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                          {item.description}
+                          {catalogDesc}
                         </p>
 
                         <div className="flex flex-wrap items-center gap-1.5 mt-2">
@@ -1919,6 +1981,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         onClose={handleCloseConsent}
         onConfirm={handleConfirmConsent}
         isConfirming={isConfirmingInstall}
+        language={language}
       />
 
       <ProfileImportModal

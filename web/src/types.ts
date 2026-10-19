@@ -19,6 +19,13 @@ export interface Settings {
   bottomDockMode?: 'auto' | 'always' | 'hidden';
 }
 
+export interface LanguagePackDef {
+  code: string;
+  name: string;
+  flag?: string;
+  translations?: Record<string, string>;
+}
+
 export interface PluginManifest {
   id: string;
   name: string;
@@ -31,6 +38,8 @@ export interface PluginManifest {
   permissions?: string[];
   fileMatches?: string[];
   minAppVersion?: string;
+  locales?: Record<string, Record<string, string>>;
+  localization?: LanguagePackDef;
 }
 
 export interface PluginItem extends PluginManifest {
