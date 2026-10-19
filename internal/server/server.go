@@ -21,6 +21,7 @@ import (
 	appfs "config-studio/internal/fs"
 	"config-studio/internal/guard"
 	"config-studio/internal/plugin"
+	"config-studio/internal/secrets"
 )
 
 type Config struct {
@@ -36,12 +37,13 @@ type Server struct {
 	plugins      *plugin.Manager
 	pluginRunner *plugin.Runner
 	audit        *audit.Logger
+	secrets      *secrets.Manager
 	handler      http.Handler
 	sessionsMu   sync.RWMutex
 	sessions     map[string]time.Time
 }
 
-func NewServer(cfg Config, cfgMgr *config.Manager, fsSvc *appfs.Service, pMgr *plugin.Manager, pRunner *plugin.Runner, auditLogger *audit.Logger) *Server {
+func NewServer(cfg Config, cfgMgr *config.Manager, fsSvc *appfs.Service, pMgr *plugin.Manager, pRunner *plugin.Runner, auditLogger *audit.Logger, secMgr *secrets.Manager) *Server {
 	s := &Server{
 		cfg:          cfg,
 		config:       cfgMgr,
@@ -49,6 +51,7 @@ func NewServer(cfg Config, cfgMgr *config.Manager, fsSvc *appfs.Service, pMgr *p
 		plugins:      pMgr,
 		pluginRunner: pRunner,
 		audit:        auditLogger,
+		secrets:      secMgr,
 		sessions:     make(map[string]time.Time),
 	}
 	s.setupRoutes()
@@ -121,6 +124,15 @@ func (s *Server) setupRoutes() {
 	// Audit Log APIs
 	mux.HandleFunc("GET /api/audit/logs", s.handleGetAuditLogs)
 	mux.HandleFunc("GET /api/audit/export", s.handleExportAuditLogs)
+
+	// Secrets Management APIs
+	mux.HandleFunc("GET /api/secrets/status", s.handleGetSecretsStatus)
+	mux.HandleFunc("GET /api/secrets", s.handleListSecrets)
+	mux.HandleFunc("GET /api/secrets/shared", s.handleListSharedSecrets)
+	mux.HandleFunc("POST /api/secrets/unlock", s.handleUnlockSecrets)
+	mux.HandleFunc("POST /api/secrets/get", s.handleGetSecret)
+	mux.HandleFunc("POST /api/secrets/save", s.handleSaveSecret)
+	mux.HandleFunc("DELETE /api/secrets/{id}", s.handleDeleteSecret)
 
 	// Health check
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
@@ -212,6 +224,8 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			r.URL.Path == "/api/auth/login" ||
 			r.URL.Path == "/api/branding/icon" ||
 			r.URL.Path == "/api/health" ||
+			r.URL.Path == "/api/secrets/status" ||
+			r.URL.Path == "/api/secrets/unlock" ||
 			(strings.HasPrefix(r.URL.Path, "/api/plugins/") && strings.Contains(r.URL.Path, "/files/")) {
 			next.ServeHTTP(w, r)
 			return

@@ -305,3 +305,28 @@ export interface ContextMenuItem {
   isVisible?: (target: ContextMenuTarget) => boolean;
   isEnabled?: (target: ContextMenuTarget) => boolean;
 }
+
+export type SecretType = 'password' | 'ssh_key' | 'token';
+export type SecretScope = 'shared' | 'plugin';
+
+export interface SecretMeta {
+  id: string;
+  title: string;
+  type: SecretType;
+  scope: SecretScope;
+  pluginId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SecretItem extends SecretMeta {
+  value?: string;
+}
+
+export interface SecretsStatus {
+  backend: string;
+  isAvailable: boolean;
+  count: number;
+  authEnabled: boolean;
+  privilegedActive: boolean;
+}

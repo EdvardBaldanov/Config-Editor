@@ -14,6 +14,7 @@ import (
 	"config-studio/internal/config"
 	appfs "config-studio/internal/fs"
 	"config-studio/internal/plugin"
+	"config-studio/internal/secrets"
 )
 
 func makeTestPluginZip(id, name, author string, permissions []string) []byte {
@@ -77,7 +78,12 @@ func TestServerPluginInspectAndConfirm(t *testing.T) {
 	}
 	defer auditLogger.Close()
 
-	srv := NewServer(Config{}, cfgMgr, fsSvc, pMgr, runner, auditLogger)
+	secMgr, err := secrets.NewManager(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create secrets manager: %v", err)
+	}
+
+	srv := NewServer(Config{}, cfgMgr, fsSvc, pMgr, runner, auditLogger, secMgr)
 
 	// 1. Inspect Upload
 	zipBytes := makeTestPluginZip("ui-only-plugin", "UI Only Plugin", "Community", []string{"ui.panels"})

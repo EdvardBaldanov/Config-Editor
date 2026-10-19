@@ -9,6 +9,7 @@ import {
   OutlineNode,
   ContextMenuItem,
   ContextMenuTarget,
+  SecretItem,
 } from '../types';
 import { contextMenuRegistry } from './contextMenuRegistry';
 import {
@@ -438,6 +439,19 @@ class PluginLoader {
         unregister: (id: string) => contextMenuRegistry.unregister(id),
         getItemsForTarget: (target: ContextMenuTarget) =>
           contextMenuRegistry.getItemsForTarget(target),
+      },
+
+      secrets: {
+        get: async (id: string) => api.getSecretValue(id),
+        set: async (item: SecretItem) => api.saveSecret(item),
+        delete: async (id: string) => api.deleteSecret(id),
+        listShared: async () => api.listSharedSecrets(),
+        list: async () => api.listSecrets(),
+        getStatus: async () => api.getSecretsStatus(),
+        unlock: async (password: string) => {
+          const res = await api.unlockSecrets(password);
+          return res.success;
+        },
       },
     };
   }

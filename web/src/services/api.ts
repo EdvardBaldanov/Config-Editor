@@ -14,6 +14,9 @@ import {
   StudioProfile,
   ProfilePreview,
   ProfileImportResult,
+  SecretMeta,
+  SecretItem,
+  SecretsStatus,
 } from '../types';
 
 export class PreSaveGuardError extends Error {
@@ -547,5 +550,81 @@ export const api = {
       throw new Error(err.error || 'Failed to import profile');
     }
     return res.json();
+  },
+
+  // Secrets Management APIs
+  async getSecretsStatus(): Promise<SecretsStatus> {
+    const res = await webFetch('/api/secrets/status');
+    if (!res.ok) {
+      return {
+        backend: 'Unknown',
+        isAvailable: false,
+        count: 0,
+        authEnabled: false,
+        privilegedActive: false,
+      };
+    }
+    return res.json();
+  },
+
+  async listSecrets(): Promise<SecretMeta[]> {
+    const res = await webFetch('/api/secrets');
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async listSharedSecrets(): Promise<SecretMeta[]> {
+    const res = await webFetch('/api/secrets/shared');
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async unlockSecrets(password: string): Promise<{ success: boolean; expiresIn: number }> {
+    const res = await webFetch('/api/secrets/unlock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to unlock secrets');
+    }
+    return res.json();
+  },
+
+  async getSecretValue(id: string): Promise<string> {
+    const res = await webFetch('/api/secrets/get', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to retrieve secret value');
+    }
+    const data = await res.json();
+    return data.value || '';
+  },
+
+  async saveSecret(item: SecretItem): Promise<void> {
+    const res = await webFetch('/api/secrets/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to save secret');
+    }
+  },
+
+  async deleteSecret(id: string): Promise<void> {
+    const res = await webFetch(`/api/secrets/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete secret');
+    }
   },
 };

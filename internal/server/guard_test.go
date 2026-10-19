@@ -12,6 +12,7 @@ import (
 	"config-studio/internal/config"
 	appfs "config-studio/internal/fs"
 	"config-studio/internal/plugin"
+	"config-studio/internal/secrets"
 )
 
 func TestServerStructureGuard(t *testing.T) {
@@ -51,7 +52,12 @@ func TestServerStructureGuard(t *testing.T) {
 	}
 	defer auditLogger.Close()
 
-	srv := NewServer(Config{}, cfgMgr, fsSvc, pMgr, runner, auditLogger)
+	secMgr, err := secrets.NewManager(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create secrets manager: %v", err)
+	}
+
+	srv := NewServer(Config{}, cfgMgr, fsSvc, pMgr, runner, auditLogger, secMgr)
 
 	// 1. Try to save broken docker-compose.yml without force -> MUST return 422
 	brokenYAML := "version: '3.8'\nservices:\n  web:\n    image nginx:alpine\n    ports:\n"

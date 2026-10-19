@@ -12,6 +12,7 @@ import (
 	"config-studio/internal/config"
 	appfs "config-studio/internal/fs"
 	"config-studio/internal/plugin"
+	"config-studio/internal/secrets"
 )
 
 func TestServerAuditLogging(t *testing.T) {
@@ -51,7 +52,12 @@ func TestServerAuditLogging(t *testing.T) {
 	}
 	defer auditLogger.Close()
 
-	srv := NewServer(Config{}, cfgMgr, fsSvc, pMgr, runner, auditLogger)
+	secMgr, err := secrets.NewManager(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create secrets manager: %v", err)
+	}
+
+	srv := NewServer(Config{}, cfgMgr, fsSvc, pMgr, runner, auditLogger, secMgr)
 
 	// 1. Save a file through the server
 	savePayload := map[string]any{

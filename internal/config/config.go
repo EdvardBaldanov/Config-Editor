@@ -163,6 +163,12 @@ func (m *Manager) CheckAuth(user, pass string) bool {
 	return m.current.AuthUser == user && m.current.AuthPass == pass
 }
 
+func (m *Manager) CheckPass(pass string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.current.AuthPass != "" && m.current.AuthPass == pass
+}
+
 func (m *Manager) GetIconMime() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

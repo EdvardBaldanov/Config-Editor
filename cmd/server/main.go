@@ -16,6 +16,7 @@ import (
 	"config-studio/internal/config"
 	appfs "config-studio/internal/fs"
 	"config-studio/internal/plugin"
+	"config-studio/internal/secrets"
 	"config-studio/internal/server"
 	"config-studio/web"
 )
@@ -95,6 +96,12 @@ func main() {
 		defer auditLogger.Close()
 	}
 
+	// Initialize secrets manager
+	secretsMgr, err := secrets.NewManager(*dataDir)
+	if err != nil {
+		log.Fatalf("Failed to initialize secrets manager: %v", err)
+	}
+
 	// Prepare embedded Web FS
 	subFS, err := web.GetFS()
 	if err != nil {
@@ -107,7 +114,7 @@ func main() {
 		WebFS:    subFS,
 	}
 
-	appServer := server.NewServer(srvConfig, cfgMgr, fsSvc, pluginMgr, pluginRunner, auditLogger)
+	appServer := server.NewServer(srvConfig, cfgMgr, fsSvc, pluginMgr, pluginRunner, auditLogger, secretsMgr)
 
 	addr := fmt.Sprintf("0.0.0.0:%d", *port)
 	httpServer := &http.Server{
