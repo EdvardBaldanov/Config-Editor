@@ -14,16 +14,20 @@
 
 ### 1.0 🔒 Безопасность ядра, песочница плагинов и аудит-лог (Security & Audit Trail)
 Главное правило: **«Любое действие, затрагивающее production, должно быть явным, обратимым, журналируемым и подтверждаемым»**.
-- **Манифест разрешений плагинов (Plugin Capabilities / Permissions)**:
+- [x] **Встроенный журнал аудита (Core Audit Log)**:
+  - Не плагин, а неотъемлемая часть ядра (`internal/audit`, `audit.jsonl` + in-memory ring buffer).
+  - Фиксация всех критических событий: кто, когда, IP, действие (`file.save`, `file.forcesave`, `file.create`, `file.delete`, `file.rename`, `plugin.install`, `plugin.toggle`, `plugin.delete`, `shell.exec`), SHA-256 хеш и размер.
+  - Экспорт в `.jsonl` (программная выгрузка через `webFetch` с распознаванием Web UI) и встроенный UI-просмотрщик с поиском и фильтрацией в настройках (`SettingsModal.tsx`).
+- [x] **Манифест разрешений плагинов (Plugin Capabilities / Permissions) и экран согласия (Consent Dialog)**:
   - Гранулярные права в `plugin.json`: `fs.read`, `fs.write`, `shell.exec`, `network`, `secrets.access`, `remote.exec`.
-  - Окно подтверждения (Consent Dialog) при установке плагина (особенно из категории `community`), показывающее список запрашиваемых привилегий.
-- **Встроенный журнал аудита (Core Audit Log)**:
-  - Не плагин, а неотъемлемая часть ядра.
-  - Фиксация всех критических событий: кто, когда, на каком сервере, какой файл изменен (с хешем diff), перезапуск служб, SSH-команды, вызовы MCP-инструментов.
-- **Безопасное хранилище секретов (OS Keychain / Credential Manager)**:
+  - Двухэтапный безопасный процесс установки (`inspect-zip` / `inspect-url` -> `consent` -> `confirm-install` / `cancel-install` с изоляцией в `tmpDir`).
+  - Экран согласия `PluginConsentModal`: категоризация рисков (Safe, Medium, Critical), верификация официальных плагинов Config Studio (`Verified Official` vs `Community`).
+  - Strict Human-in-the-Loop: отсутствие скрытых автоподтверждений в режиме администратора для деструктивных команд.
+  - Runtime-валидация прав при выполнении команд и запуске процессов (`POST /api/plugins/exec`).
+- [ ] **Безопасное хранилище секретов (OS Keychain / Credential Manager)**:
   - Пароли и приватные ключи никогда не сохраняются в открытом виде в JSON. Интеграция с системным хранилищем учетных данных (Windows Credential Manager / Secret Service / Keychain).
   - В экспортируемом профиле (`config-studio-profile.json`) секреты **по умолчанию исключены**, исключая случайную утечку ключей.
-- **Безопасная шина межплагинных сервисов (RPC / Proxy Bridge)**:
+- [ ] **Безопасная шина межплагинных сервисов (RPC / Proxy Bridge)**:
   - Вызовы сервисов между плагинами валидируются через защищенный мост ядра с проверкой прав вызывающего плагина, исключая подмену учетных данных из стороннего JS-кода.
 
 ### 1.1 🛡️ Глубокая валидация структуры (Structure Guard) & Pre-Save Guard
@@ -286,6 +290,8 @@
 ### ✅ Выполненные этапы (Released)
 - [x] **v1.1.0 Core**: Чистое ядро редактора, гибридная система установки плагинов (Каталог в 1 клик, URL, ZIP, локальная папка).
 - [x] **v1.1.1 UI Hotfix**: Визуальное оформление переключателей плагинов (контрастная рамка, фон, индикатор статуса).
+- [x] **v1.1.2 Core Security & Consent Dialog**: Встроенный журнал аудита (бэкенд `internal/audit`, `audit.jsonl`, in-memory ring buffer, UI таб и экспорт), манифест разрешений плагинов (Capabilities: `fs`, `shell`, `network`, `secrets`, `remote`), двухэтапная установка плагинов с изоляцией в `tmpDir` и экраном согласия (`PluginConsentModal`), строгая блокировка деструктивных команд без скрытых автоподтверждений.
+- [x] **v1.1.3 Settings Modal & UI Refinement**: Адаптивный динамический размер окна настроек с отступом 50px от краев экрана, глобальный ErrorBoundary, скачивание логов аудита через webFetch.
 - [x] **config-studio-web-devkit**: HTML/PHP Live Preview, встроенный сервер :8085, сниппеты Monaco.
 - [x] **config-studio-remote-agent**: Мультисерверное переключение хостов из шапки редактора.
 - [x] **config-studio-plugin-docs**: Официальная документация API, спецификация манифеста и TypeScript SDK.
@@ -293,7 +299,7 @@
 ### 🛡️ ФАЗА 1: Ядро редактора (Core First — Web & Engine Foundation)
 - [ ] **1.0 Core Security & Audit Trail**:
   - [x] Встроенный журнал аудита (Core Audit Log) для фиксации всех критических операций (сохранение, SSH, deploy, MCP).
-  - [ ] Манифест разрешений (Capabilities: `fs`, `shell`, `secrets`, `remote`) и экран согласия (Consent Dialog).
+  - [x] Манифест разрешений (Capabilities: `fs`, `shell`, `secrets`, `remote`) и экран согласия (Consent Dialog).
   - [ ] Безопасное хранилище секретов (OS Keychain / Credential Manager, исключение из экспорта).
   - [ ] Защищенный RPC/Proxy мост межплагинных сервисов.
 - [ ] **1.1 Core Config Guard & Pre-Save Guard**:
