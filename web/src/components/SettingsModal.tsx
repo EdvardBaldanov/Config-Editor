@@ -30,11 +30,12 @@ import {
   Info,
   Search,
 } from 'lucide-react';
-import { Settings, PluginItem, AuditEvent } from '../types';
+import { Settings, PluginItem, AuditEvent, PendingInstall } from '../types';
 import { translations, Language } from '../utils/i18n';
 import { copyToClipboard } from '../utils/color';
 import { api } from '../services/api';
 import { pluginManager } from '../services/pluginLoader';
+import { PluginConsentModal } from './PluginConsentModal';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -137,6 +138,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [installUrl, setInstallUrl] = useState('');
   const [isInstalling, setIsInstalling] = useState(false);
   const [installMsg, setInstallMsg] = useState<{ text: string; isError: boolean } | null>(null);
+  const [pendingInstall, setPendingInstall] = useState<PendingInstall | null>(null);
+  const [isConfirmingInstall, setIsConfirmingInstall] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
@@ -180,15 +183,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsInstalling(true);
     setInstallMsg(null);
     try {
-      const installed = await api.uploadPluginZip(file);
-      setInstallMsg({
-        text: `Плагин "${installed.name}" успешно установлен!`,
-        isError: false,
-      });
-      await loadPlugins();
-      await pluginManager.loadPlugins();
+      const pending = await api.inspectPluginZip(file);
+      setPendingInstall(pending);
     } catch (err: any) {
-      setInstallMsg({ text: err.message || 'Ошибка загрузки плагина', isError: true });
+      setInstallMsg({ text: err.message || 'Ошибка проверки архива плагина', isError: true });
     } finally {
       setIsInstalling(false);
       if (zipInputRef.current) zipInputRef.current.value = '';
@@ -200,16 +198,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsInstalling(true);
     setInstallMsg(null);
     try {
-      const installed = await api.installPluginUrl(installUrl.trim());
-      setInstallMsg({
-        text: `Плагин "${installed.name}" успешно установлен из URL!`,
-        isError: false,
-      });
-      setInstallUrl('');
-      await loadPlugins();
-      await pluginManager.loadPlugins();
+      const pending = await api.inspectPluginUrl(installUrl.trim());
+      setPendingInstall(pending);
     } catch (err: any) {
-      setInstallMsg({ text: err.message || 'Ошибка установки по ссылке', isError: true });
+      setInstallMsg({ text: err.message || 'Ошибка проверки плагина по ссылке', isError: true });
     } finally {
       setIsInstalling(false);
     }
@@ -219,17 +211,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsInstalling(true);
     setInstallMsg(null);
     try {
-      const installed = await api.installPluginUrl(p.repoUrl);
+      const pending = await api.inspectPluginUrl(p.repoUrl);
+      setPendingInstall(pending);
+    } catch (err: any) {
+      setInstallMsg({ text: err.message || `Ошибка проверки ${p.name}`, isError: true });
+    } finally {
+      setIsInstalling(false);
+    }
+  };
+
+  const handleConfirmConsent = async () => {
+    if (!pendingInstall) return;
+    setIsConfirmingInstall(true);
+    try {
+      const installed = await api.confirmPluginInstall(pendingInstall.tempKey);
       setInstallMsg({
         text: `Плагин "${installed.name}" успешно установлен!`,
         isError: false,
       });
+      setInstallUrl('');
+      setPendingInstall(null);
       await loadPlugins();
       await pluginManager.loadPlugins();
     } catch (err: any) {
-      setInstallMsg({ text: err.message || `Ошибка установки ${p.name}`, isError: true });
+      setInstallMsg({ text: err.message || 'Ошибка подтверждения установки', isError: true });
     } finally {
-      setIsInstalling(false);
+      setIsConfirmingInstall(false);
+    }
+  };
+
+  const handleCloseConsent = async () => {
+    if (pendingInstall) {
+      await api.cancelPluginInstall(pendingInstall.tempKey);
+      setPendingInstall(null);
     }
   };
 
@@ -863,6 +877,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               {p.fileMatches.join(', ')}
                             </span>
                           )}
+                          {p.permissions && p.permissions.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1">
+                              {p.permissions.map((perm) => (
+                                <span
+                                  key={perm}
+                                  className={`text-[9px] px-1.5 py-0.2 rounded font-mono ${
+                                    perm.includes('exec') || perm.includes('secrets')
+                                      ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20'
+                                      : 'bg-teal-500/10 text-teal-300 border border-teal-500/20'
+                                  }`}
+                                >
+                                  {perm}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -1341,6 +1371,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
       </div>
+
+      <PluginConsentModal
+        isOpen={!!pendingInstall}
+        pending={pendingInstall}
+        onClose={handleCloseConsent}
+        onConfirm={handleConfirmConsent}
+        isConfirming={isConfirmingInstall}
+      />
     </div>
   );
 };

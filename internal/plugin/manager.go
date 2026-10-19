@@ -3,6 +3,8 @@ package plugin
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,10 +18,11 @@ import (
 )
 
 type Manager struct {
-	pluginsDir string
-	runner     *Runner
-	mu         sync.RWMutex
-	state      map[string]bool // pluginId -> enabled
+	pluginsDir      string
+	runner          *Runner
+	mu              sync.RWMutex
+	state           map[string]bool // pluginId -> enabled
+	pendingInstalls map[string]*PendingInstall
 }
 
 func NewManager(dataDir string, runner *Runner) (*Manager, error) {
@@ -29,9 +32,10 @@ func NewManager(dataDir string, runner *Runner) (*Manager, error) {
 	}
 
 	m := &Manager{
-		pluginsDir: pluginsDir,
-		runner:     runner,
-		state:      make(map[string]bool),
+		pluginsDir:      pluginsDir,
+		runner:          runner,
+		state:           make(map[string]bool),
+		pendingInstalls: make(map[string]*PendingInstall),
 	}
 
 	m.loadState()
@@ -197,8 +201,9 @@ func (m *Manager) getPluginLocked(id string) (*Plugin, error) {
 	return nil, fmt.Errorf("plugin %s not found", id)
 }
 
-// InstallFromZip extracts a zip archive and registers the plugin.
-func (m *Manager) InstallFromZip(r io.Reader, size int64) (*Plugin, error) {
+// InspectZip extracts a zip archive to a temporary staging folder,
+// parses and validates plugin.json, and returns PendingInstall metadata.
+func (m *Manager) InspectZip(r io.Reader, size int64, sourceURL string) (*PendingInstall, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -210,16 +215,16 @@ func (m *Manager) InstallFromZip(r io.Reader, size int64) (*Plugin, error) {
 	}
 
 	// Create a temporary extraction directory
-	tmpDir, err := os.MkdirTemp("", "cs-plugin-extract-*")
+	tmpDir, err := os.MkdirTemp("", "cs-plugin-inspect-*")
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(tmpDir)
 
 	// Extract files with zip-slip safety check
 	for _, f := range zipReader.File {
 		cleanPath := filepath.Clean(f.Name)
 		if strings.HasPrefix(cleanPath, "..") || strings.Contains(cleanPath, ":") {
+			_ = os.RemoveAll(tmpDir)
 			return nil, fmt.Errorf("insecure path in zip archive: %s", f.Name)
 		}
 
@@ -230,17 +235,20 @@ func (m *Manager) InstallFromZip(r io.Reader, size int64) (*Plugin, error) {
 		}
 
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+			_ = os.RemoveAll(tmpDir)
 			return nil, err
 		}
 
 		outFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 		if err != nil {
+			_ = os.RemoveAll(tmpDir)
 			return nil, err
 		}
 
 		rc, err := f.Open()
 		if err != nil {
 			outFile.Close()
+			_ = os.RemoveAll(tmpDir)
 			return nil, err
 		}
 
@@ -248,6 +256,7 @@ func (m *Manager) InstallFromZip(r io.Reader, size int64) (*Plugin, error) {
 		rc.Close()
 		outFile.Close()
 		if err != nil {
+			_ = os.RemoveAll(tmpDir)
 			return nil, err
 		}
 	}
@@ -263,50 +272,60 @@ func (m *Manager) InstallFromZip(r io.Reader, size int64) (*Plugin, error) {
 	})
 
 	if manifestPath == "" {
+		_ = os.RemoveAll(tmpDir)
 		return nil, errors.New("archive does not contain a plugin.json manifest")
 	}
 
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
+		_ = os.RemoveAll(tmpDir)
 		return nil, err
 	}
 
 	var manifest Manifest
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		_ = os.RemoveAll(tmpDir)
 		return nil, fmt.Errorf("invalid plugin.json: %w", err)
 	}
 
 	if manifest.ID == "" {
+		_ = os.RemoveAll(tmpDir)
 		return nil, errors.New("plugin.json is missing 'id' field")
 	}
 
-	// The folder containing plugin.json is the plugin root
-	srcDir := filepath.Dir(manifestPath)
-	destDir := filepath.Join(m.pluginsDir, manifest.ID)
+	// Determine if official
+	isOfficial := false
+	authorLower := strings.ToLower(manifest.Author)
+	if authorLower == "configstudio" || authorLower == "config studio" || authorLower == "config studio team" || strings.Contains(strings.ToLower(sourceURL), "github.com/edvardbaldanov/config-studio-") {
+		isOfficial = true
+	}
 
-	// Overwrite or create destination
-	_ = os.RemoveAll(destDir)
-	if err := copyDir(srcDir, destDir); err != nil {
-		return nil, fmt.Errorf("failed to install plugin files: %w", err)
+	tempKey := generateTempKey()
+	pending := &PendingInstall{
+		TempKey:    tempKey,
+		Manifest:   manifest,
+		IsOfficial: isOfficial,
+		TempDir:    tmpDir,
+		PluginDir:  filepath.Dir(manifestPath),
+		CreatedAt:  time.Now(),
 	}
 
 	m.mu.Lock()
-	m.state[manifest.ID] = true
-	_ = m.saveState()
+	m.cleanupPendingInstallsLocked()
+	m.pendingInstalls[tempKey] = pending
 	m.mu.Unlock()
 
-	return m.GetPlugin(manifest.ID)
+	return pending, nil
 }
 
-// InstallFromURL downloads a zip or GitHub repo and installs it.
-func (m *Manager) InstallFromURL(rawURL string) (*Plugin, error) {
+// InspectURL downloads a zip or GitHub repo and inspects its manifest.
+func (m *Manager) InspectURL(rawURL string) (*PendingInstall, error) {
 	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
 		return nil, errors.New("URL is required")
 	}
 
 	downloadURL := rawURL
-	// If it's a GitHub repo URL (e.g. https://github.com/author/repo or https://github.com/author/repo.git)
 	if strings.Contains(downloadURL, "github.com/") && !strings.HasSuffix(downloadURL, ".zip") {
 		clean := strings.TrimSuffix(downloadURL, ".git")
 		clean = strings.TrimSuffix(clean, "/")
@@ -320,13 +339,12 @@ func (m *Manager) InstallFromURL(rawURL string) (*Plugin, error) {
 	}
 	defer resp.Body.Close()
 
-	// If main branch fails, try master branch on GitHub
 	if resp.StatusCode == http.StatusNotFound && strings.Contains(downloadURL, "/refs/heads/main.zip") {
 		masterURL := strings.Replace(downloadURL, "/refs/heads/main.zip", "/refs/heads/master.zip", 1)
 		resp2, err2 := client.Get(masterURL)
 		if err2 == nil && resp2.StatusCode == http.StatusOK {
 			defer resp2.Body.Close()
-			return m.InstallFromZip(resp2.Body, resp2.ContentLength)
+			return m.InspectZip(resp2.Body, resp2.ContentLength, rawURL)
 		}
 	}
 
@@ -334,7 +352,86 @@ func (m *Manager) InstallFromURL(rawURL string) (*Plugin, error) {
 		return nil, fmt.Errorf("download failed with HTTP %d: %s", resp.StatusCode, resp.Status)
 	}
 
-	return m.InstallFromZip(resp.Body, resp.ContentLength)
+	return m.InspectZip(resp.Body, resp.ContentLength, rawURL)
+}
+
+// ConfirmInstall finalizes plugin installation after user consent.
+func (m *Manager) ConfirmInstall(tempKey string) (*Plugin, error) {
+	m.mu.Lock()
+	pending, ok := m.pendingInstalls[tempKey]
+	if !ok {
+		m.mu.Unlock()
+		return nil, fmt.Errorf("pending installation %q not found or expired", tempKey)
+	}
+	delete(m.pendingInstalls, tempKey)
+	m.mu.Unlock()
+
+	defer os.RemoveAll(pending.TempDir)
+
+	destDir := filepath.Join(m.pluginsDir, pending.Manifest.ID)
+	_ = os.RemoveAll(destDir)
+	if err := copyDir(pending.PluginDir, destDir); err != nil {
+		return nil, fmt.Errorf("failed to copy plugin files: %w", err)
+	}
+
+	m.mu.Lock()
+	m.state[pending.Manifest.ID] = true
+	_ = m.saveState()
+	m.mu.Unlock()
+
+	return m.GetPlugin(pending.Manifest.ID)
+}
+
+// CancelInstall discards an inspected pending plugin.
+func (m *Manager) CancelInstall(tempKey string) error {
+	m.mu.Lock()
+	pending, ok := m.pendingInstalls[tempKey]
+	if ok {
+		delete(m.pendingInstalls, tempKey)
+	}
+	m.mu.Unlock()
+
+	if pending != nil && pending.TempDir != "" {
+		_ = os.RemoveAll(pending.TempDir)
+	}
+	return nil
+}
+
+func (m *Manager) cleanupPendingInstallsLocked() {
+	now := time.Now()
+	for k, p := range m.pendingInstalls {
+		if now.Sub(p.CreatedAt) > 15*time.Minute {
+			_ = os.RemoveAll(p.TempDir)
+			delete(m.pendingInstalls, k)
+		}
+	}
+}
+
+func generateTempKey() string {
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		return fmt.Sprintf("tmp_%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b)
+}
+
+// InstallFromZip extracts a zip archive and registers the plugin directly (legacy/auto-flow).
+func (m *Manager) InstallFromZip(r io.Reader, size int64) (*Plugin, error) {
+	pending, err := m.InspectZip(r, size, "")
+	if err != nil {
+		return nil, err
+	}
+	return m.ConfirmInstall(pending.TempKey)
+}
+
+// InstallFromURL downloads a zip or GitHub repo and installs it directly (legacy/auto-flow).
+func (m *Manager) InstallFromURL(rawURL string) (*Plugin, error) {
+	pending, err := m.InspectURL(rawURL)
+	if err != nil {
+		return nil, err
+	}
+	return m.ConfirmInstall(pending.TempKey)
 }
 
 // ServeFile safely serves plugin asset files (JS, CSS, images).

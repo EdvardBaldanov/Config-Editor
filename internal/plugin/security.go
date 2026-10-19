@@ -40,19 +40,20 @@ var riskyPatterns = []*regexp.Regexp{
 func ValidateCommand(command string, args []string, unrestricted bool, confirmed bool) error {
 	fullCmd := strings.TrimSpace(command + " " + strings.Join(args, " "))
 
-	// 1. Strict Blacklist Check (Cannot be bypassed)
+	// 1. Strict Blacklist Check (Cannot be bypassed under any circumstances)
 	for _, pattern := range blacklistedPatterns {
 		if pattern.MatchString(fullCmd) {
 			return fmt.Errorf("%w: matched dangerous pattern %q", ErrCommandBlacklisted, pattern.String())
 		}
 	}
 
-	// If user is in unrestricted mode ("I know what I'm doing") or has already confirmed this execution:
-	if unrestricted || confirmed {
+	// If user has already explicitly confirmed this execution via modal:
+	if confirmed {
 		return nil
 	}
 
-	// 2. Check if command matches risky patterns requiring confirmation
+	// 2. Risky patterns require explicit human confirmation.
+	// Even in administrator mode: NO auto-confirmations allowed for dangerous actions.
 	for _, pattern := range riskyPatterns {
 		if pattern.MatchString(fullCmd) {
 			return fmt.Errorf("%w: action %q is considered high-risk and needs confirmation", ErrConfirmationNeeded, command)

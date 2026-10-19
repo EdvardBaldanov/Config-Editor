@@ -87,6 +87,10 @@ func (s *Server) setupRoutes() {
 	// Plugin APIs
 	mux.HandleFunc("GET /api/plugins", s.handleListPlugins)
 	mux.HandleFunc("POST /api/plugins/toggle", s.handleTogglePlugin)
+	mux.HandleFunc("POST /api/plugins/inspect/upload", s.handleInspectPluginUpload)
+	mux.HandleFunc("POST /api/plugins/inspect/url", s.handleInspectPluginURL)
+	mux.HandleFunc("POST /api/plugins/install/confirm", s.handleConfirmPluginInstall)
+	mux.HandleFunc("POST /api/plugins/install/cancel", s.handleCancelPluginInstall)
 	mux.HandleFunc("POST /api/plugins/install/upload", s.handleInstallPluginUpload)
 	mux.HandleFunc("POST /api/plugins/install/url", s.handleInstallPluginURL)
 	mux.HandleFunc("DELETE /api/plugins/{id}", s.handleDeletePlugin)

@@ -57,3 +57,14 @@ type ProcessInfo struct {
 	StartedAt time.Time `json:"startedAt"`
 	Status    string    `json:"status"` // "running", "stopped", "failed"
 }
+
+// PendingInstall represents an inspected plugin awaiting user consent.
+type PendingInstall struct {
+	TempKey    string    `json:"tempKey"`
+	Manifest   Manifest  `json:"manifest"`
+	IsOfficial bool      `json:"isOfficial"`
+	TempDir    string    `json:"-"`
+	PluginDir  string    `json:"-"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+

@@ -37,6 +37,13 @@ export interface PluginItem extends PluginManifest {
   builtin?: boolean;
 }
 
+export interface PendingInstall {
+  tempKey: string;
+  manifest: PluginManifest;
+  isOfficial: boolean;
+  createdAt: string;
+}
+
 export interface ProcessInfo {
   id: string;
   pluginId: string;

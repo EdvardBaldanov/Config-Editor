@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -57,6 +58,119 @@ func (s *Server) handleTogglePlugin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResponse(w, http.StatusOK, p)
+}
+
+func (s *Server) handleInspectPluginUpload(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(50 << 20); err != nil { // 50MB max
+		jsonError(w, http.StatusBadRequest, "file too large or invalid multipart form")
+		return
+	}
+
+	file, header, err := r.FormFile("plugin")
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "missing 'plugin' file parameter: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	if !strings.HasSuffix(strings.ToLower(header.Filename), ".zip") {
+		jsonError(w, http.StatusBadRequest, "only .zip archives are supported for plugin inspection")
+		return
+	}
+
+	pending, err := s.plugins.InspectZip(file, header.Size, "")
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "failed to inspect plugin: "+err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"status":  "inspected",
+		"pending": pending,
+	})
+}
+
+func (s *Server) handleInspectPluginURL(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.URL == "" {
+		jsonError(w, http.StatusBadRequest, "url is required")
+		return
+	}
+
+	pending, err := s.plugins.InspectURL(req.URL)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "failed to inspect plugin from URL: "+err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"status":  "inspected",
+		"pending": pending,
+	})
+}
+
+func (s *Server) handleConfirmPluginInstall(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		TempKey string `json:"tempKey"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.TempKey == "" {
+		jsonError(w, http.StatusBadRequest, "tempKey is required")
+		return
+	}
+
+	installed, err := s.plugins.ConfirmInstall(req.TempKey)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "failed to confirm plugin installation: "+err.Error())
+		return
+	}
+
+	if s.audit != nil && installed != nil {
+		_ = s.audit.Log(audit.Event{
+			User:     s.getAuditUser(r),
+			IP:       r.RemoteAddr,
+			Action:   audit.ActionPluginInstall,
+			Severity: audit.SeverityInfo,
+			Target:   installed.ID,
+			Details: map[string]any{
+				"name":        installed.Name,
+				"version":     installed.Version,
+				"permissions": installed.Permissions,
+			},
+		})
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]any{
+		"status": "installed",
+		"plugin": installed,
+	})
+}
+
+func (s *Server) handleCancelPluginInstall(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		TempKey string `json:"tempKey"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.TempKey != "" {
+		_ = s.plugins.CancelInstall(req.TempKey)
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{"status": "canceled"})
 }
 
 func (s *Server) handleInstallPluginUpload(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +287,18 @@ func (s *Server) handleServePluginFile(w http.ResponseWriter, r *http.Request) {
 	s.plugins.ServeFile(w, r, pluginID, relPath)
 }
 
+func hasPluginPermission(permissions []string, required string) bool {
+	for _, p := range permissions {
+		if p == required || p == "*" {
+			return true
+		}
+		if (p == "terminal.exec" || p == "shell.exec") && (required == "shell.exec" || required == "terminal.exec") {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) handleExecPluginCommand(w http.ResponseWriter, r *http.Request) {
 	var req plugin.ExecRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -183,6 +309,15 @@ func (s *Server) handleExecPluginCommand(w http.ResponseWriter, r *http.Request)
 	if req.Command == "" {
 		jsonError(w, http.StatusBadRequest, "command is required")
 		return
+	}
+
+	// Capability check: if plugin is specified, verify it has shell.exec capability
+	if req.PluginID != "" && req.PluginID != "core" {
+		p, err := s.plugins.GetPlugin(req.PluginID)
+		if err == nil && !hasPluginPermission(p.Permissions, "shell.exec") {
+			jsonError(w, http.StatusForbidden, fmt.Sprintf("plugin %q lacks required 'shell.exec' capability", req.PluginID))
+			return
+		}
 	}
 
 	settings := s.config.Get()
@@ -240,6 +375,15 @@ func (s *Server) handleStartPluginProcess(w http.ResponseWriter, r *http.Request
 	if req.Command == "" {
 		jsonError(w, http.StatusBadRequest, "command is required")
 		return
+	}
+
+	// Capability check: if plugin is specified, verify it has shell.exec capability
+	if req.PluginID != "" && req.PluginID != "core" {
+		p, err := s.plugins.GetPlugin(req.PluginID)
+		if err == nil && !hasPluginPermission(p.Permissions, "shell.exec") {
+			jsonError(w, http.StatusForbidden, fmt.Sprintf("plugin %q lacks required 'shell.exec' capability", req.PluginID))
+			return
+		}
 	}
 
 	if req.Cwd == "" {

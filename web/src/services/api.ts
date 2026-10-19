@@ -1,4 +1,4 @@
-import { Settings, FileItem, FileInfo, PluginItem, ProcessInfo, AuditEvent, AuditQueryResponse } from '../types';
+import { Settings, FileItem, FileInfo, PluginItem, PendingInstall, ProcessInfo, AuditEvent, AuditQueryResponse } from '../types';
 
 let remoteEndpoint: string | null = localStorage.getItem('cs_active_remote_endpoint');
 let remoteToken: string | null = localStorage.getItem('cs_active_remote_token');
@@ -219,6 +219,57 @@ export const api = {
       throw new Error(err.error || 'Failed to toggle plugin');
     }
     return res.json();
+  },
+
+  async inspectPluginZip(file: File): Promise<PendingInstall> {
+    const formData = new FormData();
+    formData.append('plugin', file);
+    const res = await webFetch('/api/plugins/inspect/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to inspect plugin archive');
+    }
+    const data = await res.json();
+    return data.pending;
+  },
+
+  async inspectPluginUrl(url: string): Promise<PendingInstall> {
+    const res = await webFetch('/api/plugins/inspect/url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to inspect plugin from URL');
+    }
+    const data = await res.json();
+    return data.pending;
+  },
+
+  async confirmPluginInstall(tempKey: string): Promise<PluginItem> {
+    const res = await webFetch('/api/plugins/install/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tempKey }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to confirm plugin installation');
+    }
+    const data = await res.json();
+    return data.plugin;
+  },
+
+  async cancelPluginInstall(tempKey: string): Promise<void> {
+    await webFetch('/api/plugins/install/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tempKey }),
+    }).catch(() => {});
   },
 
   async uploadPluginZip(file: File): Promise<PluginItem> {
