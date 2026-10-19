@@ -57,20 +57,6 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
 
   const mountContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Zero-Clutter check:
-  // If dockMode is 'hidden', render nothing.
-  // If dockMode is 'auto', and there are NO plugin panels and dock is closed and no errors, render nothing!
-  const hasErrors = guardResult && !guardResult.valid && guardResult.issues.length > 0;
-  const hasPluginPanels = panels.length > 0;
-
-  if (dockMode === 'hidden') {
-    return null;
-  }
-
-  if (dockMode === 'auto' && !hasPluginPanels && !isOpen && !hasErrors) {
-    return null;
-  }
-
   // Load audit events for Output tab
   const loadRecentAudit = async () => {
     setAuditLoading(true);
@@ -99,6 +85,20 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
       }
     });
   }, [panels, activePanelId]);
+
+  // Zero-Clutter check (placed strictly after all React hooks):
+  // If dockMode is 'hidden', render nothing.
+  // If dockMode is 'auto', and there are NO plugin panels and dock is closed and no errors, render nothing!
+  const hasErrors = guardResult && !guardResult.valid && guardResult.issues.length > 0;
+  const hasPluginPanels = panels.length > 0;
+
+  if (dockMode === 'hidden') {
+    return null;
+  }
+
+  if (dockMode === 'auto' && !hasPluginPanels && !isOpen && !hasErrors) {
+    return null;
+  }
 
   // Mouse Drag to Resize
   const handleMouseDown = (e: React.MouseEvent) => {
