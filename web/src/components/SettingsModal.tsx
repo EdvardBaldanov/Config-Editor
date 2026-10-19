@@ -199,6 +199,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [themeMode, setThemeMode] = useState(settings.themeMode);
   const [language, setLanguage] = useState<Language>(settings.language || 'ru');
   const [availableLanguages, setAvailableLanguages] = useState<LanguageMeta[]>(getAvailableLanguages());
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+  const langDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(e.target as Node)) {
+        setIsLangDropdownOpen(false);
+      }
+    };
+    if (isLangDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isLangDropdownOpen]);
 
   useEffect(() => {
     return subscribeLanguages(() => {
@@ -1113,32 +1129,79 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </p>
             </div>
 
-            {/* Language Selector */}
-            <div>
+            {/* Custom Language Selector Dropdown */}
+            <div ref={langDropdownRef} className="relative">
               <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
                 <Globe className="w-4 h-4 text-accent" />
                 <span>{t.language}</span>
               </label>
-              <div className="relative">
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value as Language)}
-                  className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-black/30 border border-base-border hover:border-gray-400 dark:hover:border-gray-500 rounded-xl text-xs font-medium text-gray-900 dark:text-white focus:outline-none focus:border-accent cursor-pointer transition appearance-none pr-10"
-                >
-                  {availableLanguages.map((l) => (
-                    <option
-                      key={l.code}
-                      value={l.code}
-                      className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white py-1.5"
+
+              {(() => {
+                const currentLang = availableLanguages.find((l) => l.code === language) || {
+                  code: language,
+                  name: language === 'ru' ? 'Русский' : 'English',
+                  flag: language === 'ru' ? '🇷🇺' : '🇬🇧',
+                  isPlugin: false,
+                };
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
+                      className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-black/30 border border-base-border hover:border-gray-400 dark:hover:border-gray-500 rounded-xl text-xs font-medium text-gray-900 dark:text-white flex items-center justify-between transition cursor-pointer shadow-xs"
                     >
-                      {l.flag} {l.name} {l.isPlugin ? ' (Language Pack)' : ''}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
-                  <ChevronDown className="w-4 h-4" />
-                </div>
-              </div>
+                      <span className="flex items-center space-x-2 truncate">
+                        <span className="text-sm">{currentLang.flag}</span>
+                        <span className="font-semibold">{currentLang.name}</span>
+                        {currentLang.isPlugin && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-400 font-mono">
+                            Pack
+                          </span>
+                        )}
+                      </span>
+                      <ChevronDown
+                        className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                          isLangDropdownOpen ? 'rotate-180 text-accent' : ''
+                        }`}
+                      />
+                    </button>
+
+                    {isLangDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white dark:bg-[#161b22] border border-base-border rounded-xl shadow-2xl p-1 space-y-0.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {availableLanguages.map((l) => {
+                          const isSelected = language === l.code;
+                          return (
+                            <button
+                              key={l.code}
+                              type="button"
+                              onClick={() => {
+                                setLanguage(l.code);
+                                setIsLangDropdownOpen(false);
+                              }}
+                              className={`w-full px-3 py-2 rounded-lg text-xs flex items-center justify-between transition cursor-pointer ${
+                                isSelected
+                                  ? 'bg-accent/15 text-accent font-semibold'
+                                  : 'text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10'
+                              }`}
+                            >
+                              <span className="flex items-center space-x-2 truncate">
+                                <span className="text-sm">{l.flag}</span>
+                                <span className="truncate">{l.name}</span>
+                                {l.isPlugin && (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-400 font-mono">
+                                    Pack
+                                  </span>
+                                )}
+                              </span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-accent shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
 
             {/* Theme Mode Switch */}
