@@ -603,6 +603,7 @@ export const App: React.FC = () => {
             guardResult={guardResult}
             currentFile={currentFile}
             cursorPos={cursorPos}
+            language={settings.language}
             onToggleOpen={(open) => setIsBottomDockOpen((prev) => (open !== undefined ? open : !prev))}
             onSelectPanel={(panelId) => {
               setActiveBottomDockId(panelId);

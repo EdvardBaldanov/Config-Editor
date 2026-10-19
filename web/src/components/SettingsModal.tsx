@@ -230,9 +230,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const res = await api.syncSources();
       setSources(res.sources);
       await loadPlugins();
-      alert('Синхронизация каталогов успешно завершена!');
+      alert(language === 'en' ? 'Plugin sources synced successfully!' : 'Синхронизация каталогов успешно завершена!');
     } catch (e: any) {
-      alert(`Ошибка синхронизации: ${e.message}`);
+      alert(language === 'en' ? `Sync error: ${e.message}` : `Ошибка синхронизации: ${e.message}`);
     } finally {
       setIsSyncingSources(false);
     }
@@ -248,7 +248,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setShowAddSourceForm(false);
       await loadSources();
     } catch (e: any) {
-      alert(`Ошибка добавления источника: ${e.message}`);
+      alert(language === 'en' ? `Failed to add source: ${e.message}` : `Ошибка добавления источника: ${e.message}`);
     } finally {
       setIsAddingSource(false);
     }
@@ -259,17 +259,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       await api.updateSource(src.id, { enabled: !src.enabled });
       await loadSources();
     } catch (e: any) {
-      alert(`Ошибка изменения источника: ${e.message}`);
+      alert(language === 'en' ? `Failed to update source: ${e.message}` : `Ошибка изменения источника: ${e.message}`);
     }
   };
 
   const handleDeleteSource = async (id: string) => {
-    if (!confirm('Вы уверены, что хотите удалить этот источник плагинов?')) return;
+    if (!confirm(language === 'en' ? 'Are you sure you want to delete this plugin source?' : 'Вы уверены, что хотите удалить этот источник плагинов?')) return;
     try {
       await api.deleteSource(id);
       await loadSources();
     } catch (e: any) {
-      alert(`Ошибка удаления источника: ${e.message}`);
+      alert(language === 'en' ? `Failed to delete source: ${e.message}` : `Ошибка удаления источника: ${e.message}`);
     }
   };
 
@@ -282,7 +282,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setProfilePreview(preview);
       setIsProfileImportModalOpen(true);
     } catch (err: any) {
-      alert(`Неверный файл профиля: ${err.message}`);
+      alert(language === 'en' ? `Invalid profile file: ${err.message}` : `Неверный файл профиля: ${err.message}`);
     } finally {
       if (profileFileInputRef.current) {
         profileFileInputRef.current.value = '';
@@ -335,30 +335,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const queuedCount = res?.pluginsQueued ? res.pluginsQueued.length : 0;
       const enabledCount = res?.pluginsEnabled ? res.pluginsEnabled.length : 0;
 
+      const isEn = language === 'en';
       const details: string[] = [];
       if (res?.settingsApplied) {
-        details.push('🎨 Тема и параметры интерфейса успешно применены');
+        details.push(isEn ? '🎨 Theme and UI preferences successfully applied' : '🎨 Тема и параметры интерфейса успешно применены');
       }
       if (sourcesAdded > 0) {
-        details.push(`🌐 Добавлено новых источников: +${sourcesAdded}`);
+        details.push(isEn ? `🌐 Added new sources: +${sourcesAdded}` : `🌐 Добавлено новых источников: +${sourcesAdded}`);
       }
       if (enabledCount > 0) {
-        details.push(`⚡ Активировано плагинов: ${enabledCount}`);
+        details.push(isEn ? `⚡ Activated plugins: ${enabledCount}` : `⚡ Активировано плагинов: ${enabledCount}`);
       }
       if (queuedCount > 0) {
-        details.push(`📦 Установлено плагинов: +${queuedCount}`);
+        details.push(isEn ? `📦 Installed plugins: +${queuedCount}` : `📦 Установлено плагинов: +${queuedCount}`);
       }
       if (res?.errors && res.errors.length > 0) {
-        details.push(`⚠️ Ошибки при установке плагинов:\n  - ${res.errors.join('\n  - ')}`);
+        details.push(isEn ? `⚠️ Plugin installation errors:\n  - ${res.errors.join('\n  - ')}` : `⚠️ Ошибки при установке плагинов:\n  - ${res.errors.join('\n  - ')}`);
       }
 
       if (details.length > 0) {
-        alert(`Профиль успешно применен!\n\n• ${details.join('\n• ')}`);
+        alert(isEn ? `Profile successfully applied!\n\n• ${details.join('\n• ')}` : `Профиль успешно применен!\n\n• ${details.join('\n• ')}`);
       } else {
-        alert('Профиль проверен: все настройки, источники и плагины уже соответствуют профилю.');
+        alert(isEn ? 'Profile verified: all settings, sources, and plugins are already up to date.' : 'Профиль проверен: все настройки, источники и плагины уже соответствуют профилю.');
       }
     } catch (err: any) {
-      alert(`Ошибка импорта профиля: ${err.message}`);
+      alert(language === 'en' ? `Profile import error: ${err.message}` : `Ошибка импорта профиля: ${err.message}`);
     } finally {
       setIsImportingProfile(false);
     }
@@ -682,7 +683,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <Share2 size={13} />
-              <span>Профиль и Источники</span>
+              <span>{t.tabProfile}</span>
             </button>
 
             <button
@@ -919,7 +920,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Bottom Dock Strip Mode */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
-                Нижняя панель (Dock Strip)
+                {t.dockStripSetting}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -931,8 +932,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
                   }`}
                 >
-                  <span className="font-semibold">Авто (Zero-Clutter)</span>
-                  <span className="text-[10px] opacity-75">Скрыта без плагинов</span>
+                  <span className="font-semibold">{t.dockModeAuto}</span>
+                  <span className="text-[10px] opacity-75">{t.dockModeAutoDesc}</span>
                 </button>
                 <button
                   type="button"
@@ -943,8 +944,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
                   }`}
                 >
-                  <span className="font-semibold">Всегда видна</span>
-                  <span className="text-[10px] opacity-75">Строка 28px внизу</span>
+                  <span className="font-semibold">{t.dockModeAlways}</span>
+                  <span className="text-[10px] opacity-75">{t.dockModeAlwaysDesc}</span>
                 </button>
                 <button
                   type="button"
@@ -955,8 +956,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
                   }`}
                 >
-                  <span className="font-semibold">Отключена</span>
-                  <span className="text-[10px] opacity-75">Всегда скрыта</span>
+                  <span className="font-semibold">{t.dockModeHidden}</span>
+                  <span className="text-[10px] opacity-75">{t.dockModeHiddenDesc}</span>
                 </button>
               </div>
             </div>
@@ -1097,14 +1098,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">
-                Двойная проверка AST-синтаксиса (YAML, JSON, TOML, .env, Nginx) перед физической записью на диск.
-                При обнаружении синтаксических ошибок сохранение чувствительных конфигов блокируется с предложением исправить ошибку или выполнить осознанный Force Save.
+                {t.structureGuardDesc}
               </p>
 
               {structureGuardEnabled && (
                 <div className="space-y-2 pt-2 border-t border-base-border">
                   <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300">
-                    Пользовательские маски чувствительных файлов (по одной на строку):
+                    {t.criticalPatternsLabel}
                   </label>
                   <textarea
                     rows={3}
@@ -1114,7 +1114,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="w-full px-3 py-2 bg-white dark:bg-black/30 border border-base-border rounded-xl text-xs font-mono text-gray-900 dark:text-white focus:outline-none focus:border-accent"
                   />
                   <p className="text-[10px] text-gray-400 leading-normal">
-                    Базовые системные маски активны всегда: <code>docker-compose*.yml</code>, <code>nginx.conf</code>, <code>*.service</code>, <code>.env.production</code>, <code>Caddyfile</code>, <code>*.prod.yaml</code> и др.
+                    {t.criticalPatternsHelp} <code>docker-compose*.yml</code>, <code>nginx.conf</code>, <code>*.service</code>, <code>.env.production</code>, <code>Caddyfile</code>, <code>*.prod.yaml</code>
                   </p>
                 </div>
               )}
@@ -1155,7 +1155,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="button"
                   onClick={loadPlugins}
                   className="p-1 text-gray-400 hover:text-white rounded hover:bg-white/5 transition"
-                  title="Обновить список плагинов"
+                  title={t.refreshPluginsList}
                 >
                   <RefreshCw size={13} className={isLoadingPlugins ? 'animate-spin' : ''} />
                 </button>
@@ -1166,7 +1166,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <Package className="w-8 h-8 text-gray-500 mb-1 opacity-60" />
                   <span className="font-medium text-gray-300">{t.noInstalledPlugins}</span>
                   <span className="text-[11px] text-gray-500">
-                    Установите нужные модули из каталога ниже, через ZIP или по ссылке из GitHub.
+                    {t.installHelpNote}
                   </span>
                 </div>
               ) : (
@@ -1263,7 +1263,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             type="button"
                             onClick={() => handleDeletePlugin(p.id, p.name)}
                             className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"
-                            title="Удалить плагин"
+                            title={t.deletePluginTitle}
                           >
                             <Trash2 size={13} />
                           </button>
@@ -1428,7 +1428,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </button>
                   </div>
                   <p className="text-[10px] text-gray-400">
-                    Поддерживаются прямые ссылки на GitHub репозитории (например, https://github.com/author/plugin) или прямые ссылки на .zip файлы.
+                    {t.githubUrlTip}
                   </p>
                 </div>
               )}
@@ -1467,10 +1467,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 dark:text-white">
-                    Переносимость профиля (1-Click Profile Portability)
+                    {t.profilePortabilityTitle}
                   </h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Экспортируйте ваши темы, правила Deep Guard и список плагинов для мгновенного развертывания на любом компьютере или сервере.
+                    {t.profilePortabilityDesc}
                   </p>
                 </div>
               </div>
@@ -1482,7 +1482,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-semibold bg-accent text-gray-900 hover:opacity-90 shadow-sm transition-all cursor-pointer"
                 >
                   <Download size={14} />
-                  <span>Экспорт профиля (.json)</span>
+                  <span>{t.exportProfileBtn}</span>
                 </a>
 
                 <input
@@ -1498,12 +1498,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-200/80 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 border border-base-border transition-all cursor-pointer"
                 >
                   <Upload size={14} />
-                  <span>Импорт профиля (.json)</span>
+                  <span>{t.importProfileBtn}</span>
                 </button>
 
                 <span className="text-[11px] text-teal-400/90 font-medium flex items-center gap-1.5 ml-auto">
                   <Sparkles size={12} />
-                  Пароли и ключи исключены по умолчанию
+                  {t.secretsExcludedNote}
                 </span>
               </div>
             </div>
@@ -1514,10 +1514,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Globe size={16} className="text-accent" />
-                    <span>Доверенные каталоги плагинов (Plugin Sources)</span>
+                    <span>{t.sourcesTitle}</span>
                   </h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Репозитории и реестры, из которых Config Studio подтягивает список официальных и сторонних плагинов.
+                    {t.sourcesDesc}
                   </p>
                 </div>
 
@@ -1529,7 +1529,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-gray-200/80 dark:bg-white/5 hover:bg-gray-300 dark:hover:bg-white/10 border border-base-border text-gray-700 dark:text-gray-300 transition-all cursor-pointer disabled:opacity-50"
                   >
                     <RefreshCw size={12} className={isSyncingSources ? 'animate-spin' : ''} />
-                    <span>{isSyncingSources ? 'Синхронизация...' : 'Синхронизировать'}</span>
+                    <span>{isSyncingSources ? t.syncingSources : t.syncSources}</span>
                   </button>
                   <button
                     type="button"
@@ -1537,7 +1537,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-accent text-gray-900 hover:opacity-90 shadow-2xs transition-all cursor-pointer"
                   >
                     <Plus size={12} />
-                    <span>Добавить источник</span>
+                    <span>{t.addSourceBtn}</span>
                   </button>
                 </div>
               </div>
@@ -1546,24 +1546,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {showAddSourceForm && (
                 <div className="p-4 rounded-2xl border border-accent/40 bg-accent/5 space-y-3 animate-fade-in">
                   <h4 className="text-xs font-bold text-gray-900 dark:text-white">
-                    Подключение нового каталога плагинов
+                    {t.addSourceTitle}
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
-                        Название каталога
+                        {t.sourceNameLabel}
                       </label>
                       <input
                         type="text"
                         value={newSourceName}
                         onChange={(e) => setNewSourceName(e.target.value)}
-                        placeholder="Например: Internal DevOps Registry"
+                        placeholder={t.sourceNamePlaceholder}
                         className="w-full px-3 py-1.5 rounded-xl border border-base-border bg-base-surface text-xs text-gray-900 dark:text-white focus:outline-none focus:border-accent"
                       />
                     </div>
                     <div>
                       <label className="block text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
-                        URL к registry.json
+                        {t.sourceUrlLabel}
                       </label>
                       <input
                         type="text"
@@ -1580,7 +1580,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       onClick={() => setShowAddSourceForm(false)}
                       className="px-3 py-1.5 rounded-xl text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white"
                     >
-                      Отмена
+                      {t.cancel}
                     </button>
                     <button
                       type="button"
@@ -1588,7 +1588,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       disabled={!newSourceUrl.trim() || isAddingSource}
                       className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-accent text-gray-900 hover:opacity-90 disabled:opacity-50 cursor-pointer"
                     >
-                      {isAddingSource ? 'Добавление...' : 'Сохранить источник'}
+                      {isAddingSource ? t.addingSource : t.saveSourceBtn}
                     </button>
                   </div>
                 </div>
@@ -1598,11 +1598,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="space-y-2">
                 {isLoadingSources ? (
                   <div className="py-8 text-center text-xs text-gray-400">
-                    Загрузка списка источников...
+                    {t.loadingSources}
                   </div>
                 ) : sources.length === 0 ? (
                   <div className="py-8 text-center text-xs text-gray-400">
-                    Нет подключенных источников
+                    {t.noSources}
                   </div>
                 ) : (
                   sources.map((s) => (
@@ -1624,15 +1624,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             </span>
                             {s.official ? (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-400 border border-teal-500/40">
-                                Официальный
+                                {t.officialBadge}
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/40">
-                                Сообщество
+                                {t.communityBadge}
                               </span>
                             )}
                             <span className="text-[11px] text-gray-400 font-mono">
-                              ({s.pluginsCount} плагинов)
+                              ({s.pluginsCount} {t.pluginsCountSuffix})
                             </span>
                           </div>
                           <p className="text-[11px] text-gray-500 font-mono truncate mt-0.5 max-w-xl">
@@ -1644,7 +1644,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className="flex items-center space-x-2 shrink-0">
                         {s.lastSync && (
                           <span className="text-[10px] text-gray-400 font-mono hidden md:inline">
-                            Синхр: {new Date(s.lastSync).toLocaleTimeString('ru-RU')}
+                            {t.syncedPrefix} {new Date(s.lastSync).toLocaleTimeString(language === 'en' ? 'en-US' : 'ru-RU')}
                           </span>
                         )}
                         {!s.official && (
@@ -1652,7 +1652,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             type="button"
                             onClick={() => handleDeleteSource(s.id)}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                            title="Удалить источник"
+                            title={t.deleteSourceTitle}
                           >
                             <Trash2 size={13} />
                           </button>
@@ -1690,7 +1690,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-700 dark:text-gray-200 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 transition shrink-0 cursor-pointer disabled:opacity-50"
               >
                 <Download size={13} className={`text-accent ${isExportingAudit ? 'animate-bounce' : ''}`} />
-                <span>{isExportingAudit ? 'Экспорт...' : t.auditExport}</span>
+                <span>{isExportingAudit ? t.auditExporting : t.auditExport}</span>
               </button>
             </div>
 
@@ -1789,7 +1789,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Total Count and Status */}
             <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 px-1">
               <span>{t.auditTotal}: {auditTotal}</span>
-              {auditLoading && <span className="text-accent">Обновление журнала...</span>}
+              {auditLoading && <span className="text-accent">{t.auditRefreshing}</span>}
             </div>
 
             {/* Events List */}
@@ -1862,7 +1862,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             onClick={() => setExpandedAuditId(isExpanded ? null : evt.id)}
                             className="text-[10px] text-accent hover:underline flex items-center space-x-1"
                           >
-                            <span>{isExpanded ? '▲ Скрыть детали' : '▼ Показать детали события'}</span>
+                            <span>{isExpanded ? t.hideDetails : t.showDetails}</span>
                           </button>
 
                           {isExpanded && (
@@ -1925,6 +1925,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         isOpen={isProfileImportModalOpen}
         preview={profilePreview}
         isImporting={isImportingProfile}
+        language={language}
         onClose={() => {
           setIsProfileImportModalOpen(false);
           setProfilePreview(null);

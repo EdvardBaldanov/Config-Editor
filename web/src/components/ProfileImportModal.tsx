@@ -12,11 +12,13 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ProfilePreview } from '../types';
+import { translations } from '../utils/i18n';
 
 interface ProfileImportModalProps {
   isOpen: boolean;
   preview: ProfilePreview | null;
   isImporting?: boolean;
+  language?: 'ru' | 'en';
   onClose: () => void;
   onConfirm: (options: {
     applySettings: boolean;
@@ -29,6 +31,7 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
   isOpen,
   preview,
   isImporting = false,
+  language = 'ru',
   onClose,
   onConfirm,
 }) => {
@@ -38,6 +41,7 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
 
   if (!isOpen || !preview) return null;
 
+  const t = translations[language] || translations.ru;
   const profile = preview.profile || { exportedAt: '', app: {}, sources: [], plugins: [] };
   const settingsDiff = preview.settingsDiff || [];
   const newSources = preview.newSources || [];
@@ -47,7 +51,7 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
   const toEnableCount = pluginsStatus.filter((p) => p?.action === 'will_enable').length;
 
   const exportDateStr = profile.exportedAt
-    ? new Date(profile.exportedAt).toLocaleString('ru-RU')
+    ? new Date(profile.exportedAt).toLocaleString(language === 'en' ? 'en-US' : 'ru-RU')
     : '—';
 
   return (
@@ -61,10 +65,10 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                Импорт профиля Config Studio
+                {t.importProfileModalTitle}
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Экспортирован: {exportDateStr}
+                {t.exportedAtPrefix} {exportDateStr}
               </p>
             </div>
           </div>
@@ -83,8 +87,7 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
           <div className="p-3 bg-teal-500/10 border border-teal-500/30 rounded-2xl flex items-start gap-2.5 text-xs text-teal-400">
             <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-teal-400" />
             <span>
-              <strong>100% Безопасный перенос:</strong> файл профиля содержит только визуальные настройки,
-              источники и манифесты плагинов. Пароли, приватные ключи и токены исключены.
+              <strong>{t.safeTransferBadge}</strong> {t.safeTransferExplanation}
             </span>
           </div>
 
@@ -99,10 +102,10 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
                   className="w-4 h-4 text-accent rounded accent-teal-500 cursor-pointer"
                 />
                 <Palette className="w-4 h-4 text-accent" />
-                <span>Настройки темы и интерфейса</span>
+                <span>{t.themeSettingsLabel}</span>
               </label>
               <span className="text-[11px] font-mono text-gray-400">
-                {settingsDiff.length > 0 ? `${settingsDiff.length} изменений` : 'Без изменений'}
+                {settingsDiff.length > 0 ? `${settingsDiff.length} ${t.diffChanges}` : t.diffNoChanges}
               </span>
             </div>
 
@@ -128,10 +131,10 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
                   className="w-4 h-4 text-accent rounded accent-teal-500 cursor-pointer"
                 />
                 <Globe className="w-4 h-4 text-accent" />
-                <span>Источники каталогов плагинов</span>
+                <span>{t.sourcesLabel}</span>
               </label>
               <span className="text-[11px] font-mono text-gray-400">
-                {newSources.length > 0 ? `+${newSources.length} новых` : 'Все подключены'}
+                {newSources.length > 0 ? `+${newSources.length} ${t.diffNew}` : t.diffAllConnected}
               </span>
             </div>
 
@@ -158,17 +161,17 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
                   className="w-4 h-4 text-accent rounded accent-teal-500 cursor-pointer"
                 />
                 <Package className="w-4 h-4 text-accent" />
-                <span>Плагины профиля ({pluginsStatus.length})</span>
+                <span>{t.pluginsLabel} ({pluginsStatus.length})</span>
               </label>
               <div className="flex items-center gap-1.5 text-[11px]">
                 {toInstallCount > 0 && (
                   <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">
-                    +{toInstallCount} установить
+                    +{toInstallCount} {t.actionInstall}
                   </span>
                 )}
                 {toEnableCount > 0 && (
                   <span className="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-400 font-medium">
-                    +{toEnableCount} включить
+                    +{toEnableCount} {t.actionEnable}
                   </span>
                 )}
               </div>
@@ -179,19 +182,19 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
                 {pluginsStatus.map((p) => {
                   let badge = (
                     <span className="text-[10px] text-gray-500 bg-gray-200 dark:bg-gray-800 px-1.5 py-0.5 rounded font-mono">
-                      установлен
+                      {t.actionInstalled}
                     </span>
                   );
                   if (p.action === 'to_install') {
                     badge = (
                       <span className="text-[10px] text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-1.5 py-0.5 rounded font-mono">
-                        установить
+                        {t.actionInstall}
                       </span>
                     );
                   } else if (p.action === 'will_enable') {
                     badge = (
                       <span className="text-[10px] text-teal-400 bg-teal-950/40 border border-teal-800/40 px-1.5 py-0.5 rounded font-mono">
-                        включить
+                        {t.actionEnable}
                       </span>
                     );
                   }
@@ -218,7 +221,7 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
             disabled={isImporting}
             className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
           >
-            Отмена
+            {t.cancel}
           </button>
           <button
             type="button"
@@ -229,12 +232,12 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
             {isImporting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Применение профиля...</span>
+                <span>{t.applyingProfile}</span>
               </>
             ) : (
               <>
                 <Check className="w-4 h-4" />
-                <span>Применить профиль</span>
+                <span>{t.applyProfile}</span>
               </>
             )}
           </button>

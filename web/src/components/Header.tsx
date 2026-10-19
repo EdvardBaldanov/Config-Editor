@@ -454,10 +454,10 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenPlugins}
             className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-base-border transition-colors cursor-pointer"
-            title={`Плагины (${activePluginsCount} активных)`}
+            title={`${t.tabPlugins} (${activePluginsCount} ${t.headerPluginsActive || 'active'})`}
           >
             <Package className="w-3.5 h-3.5 text-accent" />
-            <span className="hidden md:inline font-medium">Плагины</span>
+            <span className="hidden md:inline font-medium">{t.tabPlugins}</span>
             {activePluginsCount > 0 && (
               <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-accent/20 text-accent border border-accent/30">
                 {activePluginsCount}

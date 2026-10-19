@@ -16,6 +16,7 @@ import {
 import { BottomPanelDef } from '../services/pluginLoader';
 import { OpenFile, GuardValidationResult, GuardIssue, AuditEvent } from '../types';
 import { api } from '../services/api';
+import { translations } from '../utils/i18n';
 
 interface BottomDockStripProps {
   panels: BottomPanelDef[];
@@ -25,6 +26,7 @@ interface BottomDockStripProps {
   guardResult: GuardValidationResult | null;
   currentFile: OpenFile | null;
   cursorPos?: { line: number; col: number };
+  language?: 'ru' | 'en';
   onToggleOpen: (open?: boolean) => void;
   onSelectPanel: (panelId: string) => void;
   onClosePanel: (panelId: string) => void;
@@ -40,12 +42,14 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
   guardResult,
   currentFile,
   cursorPos = { line: 1, col: 1 },
+  language = 'ru',
   onToggleOpen,
   onSelectPanel,
   onClosePanel,
   onJumpToLine,
   accentColor = '#00d2b4',
 }) => {
+  const t = translations[language] || translations.ru;
   const [height, setHeight] = useState<number>(() => {
     const saved = localStorage.getItem('cs_dock_height');
     return saved ? parseInt(saved, 10) : 240;
@@ -154,7 +158,7 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
           <div
             onMouseDown={handleMouseDown}
             className="h-1.5 w-full bg-base-border hover:bg-accent/60 cursor-row-resize transition-colors flex items-center justify-center group"
-            title="Потяните для изменения высоты панели"
+            title={t.dockResizeTooltip}
           >
             <div className="w-10 h-0.5 rounded-full bg-gray-500 group-hover:bg-accent transition-colors" />
           </div>
@@ -163,13 +167,13 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
           <div className="h-8 px-3 border-b border-base-border bg-[#161b22] flex items-center justify-between text-xs text-[#8b949e]">
             <div className="flex items-center space-x-2">
               <span className="font-semibold text-gray-200">
-                {activePanelId === 'output' && '📋 Журнал вывода и аудита'}
-                {activePanelId === 'problems' && '🔍 Проблемы и синтаксический анализ'}
+                {activePanelId === 'output' && t.dockOutputTitle}
+                {activePanelId === 'problems' && t.dockProblemsTitle}
                 {panels.find((p) => p.id === activePanelId)?.title}
               </span>
               {activePanelId === 'problems' && (
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-red-950/40 text-red-400 border border-red-800/40">
-                  {criticalIssuesCount} ошибок, {warningIssuesCount} предупреждений
+                  {criticalIssuesCount} {t.dockErrors}, {warningIssuesCount} {t.dockWarnings}
                 </span>
               )}
             </div>
@@ -181,7 +185,7 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
                   onClick={loadRecentAudit}
                   disabled={auditLoading}
                   className="p-1 hover:text-white hover:bg-white/5 rounded transition"
-                  title="Обновить журнал"
+                  title={t.dockRefreshTooltip}
                 >
                   <RefreshCw size={13} className={auditLoading ? 'animate-spin' : ''} />
                 </button>
@@ -191,7 +195,7 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
                 type="button"
                 onClick={() => setHeight((h) => (h <= 240 ? 420 : 240))}
                 className="p-1 hover:text-white hover:bg-white/5 rounded transition"
-                title={height <= 240 ? 'Увеличить высоту' : 'Уменьшить высоту'}
+                title={language === 'en' ? (height <= 240 ? 'Expand height' : 'Shrink height') : (height <= 240 ? 'Увеличить высоту' : 'Уменьшить высоту')}
               >
                 {height <= 240 ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
               </button>
@@ -200,7 +204,7 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
                 type="button"
                 onClick={() => setIsMaximized((m) => !m)}
                 className="p-1 hover:text-white hover:bg-white/5 rounded transition"
-                title={isMaximized ? 'Свернуть из полного экрана' : 'Во весь экран'}
+                title={isMaximized ? t.dockRestoreTooltip : t.dockMaximizeTooltip}
               >
                 {isMaximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
               </button>
@@ -209,7 +213,7 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
                 type="button"
                 onClick={() => onToggleOpen(false)}
                 className="p-1 hover:text-red-400 hover:bg-red-500/10 rounded transition"
-                title="Свернуть нижний док"
+                title={t.dockCloseTooltip}
               >
                 <X size={13} />
               </button>
@@ -258,7 +262,7 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
                 ) : (
                   <div className="py-8 text-center text-gray-500 flex flex-col items-center justify-center space-y-1">
                     <AlertCircle size={20} className="text-emerald-500/60" />
-                    <span>Проблем не обнаружено. Структура конфигурации валидна.</span>
+                    <span>{t.dockNoProblems}</span>
                   </div>
                 )}
               </div>
@@ -296,7 +300,7 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
                   ))
                 ) : (
                   <div className="py-8 text-center text-gray-500">
-                    <span>Событий вывода пока нет</span>
+                    <span>{t.dockNoOutput}</span>
                   </div>
                 )}
               </div>
@@ -356,7 +360,7 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
             style={isOpen && activePanelId === 'output' ? { backgroundColor: accentColor } : {}}
           >
             <FileText size={12} />
-            <span>Вывод</span>
+            <span>{t.dockOutput}</span>
           </button>
 
           {/* Built-in: Problems (Shows red badge when syntax error occurs) */}
@@ -373,7 +377,7 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
             style={isOpen && activePanelId === 'problems' ? { backgroundColor: accentColor } : {}}
           >
             <AlertCircle size={12} className={criticalIssuesCount > 0 ? 'text-red-400 animate-pulse' : ''} />
-            <span>Проблемы</span>
+            <span>{t.dockProblems}</span>
             {criticalIssuesCount > 0 && (
               <span className="px-1.5 py-0.2 text-[9px] font-mono font-bold rounded-full bg-red-600 text-white">
                 {criticalIssuesCount}
@@ -397,7 +401,7 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
             type="button"
             onClick={() => onToggleOpen(!isOpen)}
             className="flex items-center space-x-1 text-[10px] text-gray-400 hover:text-white transition"
-            title="Переключить нижний док (Ctrl+~ / Ctrl+J)"
+            title={t.dockToggleTooltip}
           >
             <span>Ctrl+~</span>
             {isOpen ? <ChevronDown size={11} /> : <ChevronUp size={11} />}

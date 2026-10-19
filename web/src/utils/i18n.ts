@@ -134,6 +134,99 @@ export const translations = {
     version: 'Версия',
     permissions: 'Разрешения',
     fileMatches: 'Поддерживаемые файлы',
+
+    // Tab Profile & Sources
+    tabProfile: 'Профиль и Источники',
+    headerPluginsTitle: 'Плагины',
+    headerPluginsActive: 'активных',
+
+    // Audit Details Toggle
+    hideDetails: '▲ Скрыть детали',
+    showDetails: '▼ Показать детали события',
+    auditRefreshing: 'Обновление журнала...',
+    auditExporting: 'Экспорт...',
+
+    // Bottom Dock Settings
+    dockStripSetting: 'Нижняя панель (Dock Strip)',
+    dockModeAuto: 'Авто (Zero-Clutter)',
+    dockModeAutoDesc: 'Скрыта без плагинов',
+    dockModeAlways: 'Всегда видна',
+    dockModeAlwaysDesc: 'Строка 28px внизу',
+    dockModeHidden: 'Отключена',
+    dockModeHiddenDesc: 'Всегда скрыта',
+
+    // Structure Guard Settings
+    structureGuardDesc:
+      'Двойная проверка AST-синтаксиса (YAML, JSON, TOML, .env, Nginx) перед физической записью на диск. При обнаружении синтаксических ошибок сохранение чувствительных конфигов блокируется с предложением Force Save.',
+    criticalPatternsLabel: 'Пользовательские маски чувствительных файлов (по одной на строку):',
+    criticalPatternsHelp: 'Базовые системные маски активны всегда:',
+
+    // Profile Portability & Sources
+    profilePortabilityTitle: 'Переносимость профиля (1-Click Profile Portability)',
+    profilePortabilityDesc:
+      'Экспортируйте ваши темы, правила Deep Guard и список плагинов для мгновенного развертывания на любом компьютере или сервере.',
+    exportProfileBtn: 'Экспорт профиля (.json)',
+    importProfileBtn: 'Импорт профиля (.json)',
+    secretsExcludedNote: 'Пароли и ключи исключены по умолчанию',
+    sourcesTitle: 'Доверенные каталоги плагинов (Plugin Sources)',
+    sourcesDesc:
+      'Репозитории и реестры, из которых Config Studio подтягивает список официальных и сторонних плагинов.',
+    syncSources: 'Синхронизировать',
+    syncingSources: 'Синхронизация...',
+    addSourceBtn: 'Добавить источник',
+    addSourceTitle: 'Подключение нового каталога плагинов',
+    sourceNameLabel: 'Название каталога',
+    sourceNamePlaceholder: 'Например: Internal DevOps Registry',
+    sourceUrlLabel: 'URL к registry.json',
+    saveSourceBtn: 'Сохранить источник',
+    addingSource: 'Добавление...',
+    loadingSources: 'Загрузка списка источников...',
+    noSources: 'Нет подключенных источников',
+    officialBadge: 'Официальный',
+    communityBadge: 'Сообщество',
+    pluginsCountSuffix: 'плагинов',
+    syncedPrefix: 'Синхр:',
+    deleteSourceTitle: 'Удалить источник',
+    deletePluginTitle: 'Удалить плагин',
+    refreshPluginsList: 'Обновить список плагинов',
+    installHelpNote: 'Установите нужные модули из каталога ниже, через ZIP или по ссылке из GitHub.',
+    githubUrlTip:
+      'Поддерживаются прямые ссылки на GitHub репозитории (например, https://github.com/author/plugin) или прямые ссылки на .zip архивы.',
+
+    // Profile Import Modal
+    importProfileModalTitle: 'Импорт профиля Config Studio',
+    exportedAtPrefix: 'Экспортирован:',
+    safeTransferBadge: '100% Безопасный перенос:',
+    safeTransferExplanation:
+      'файл профиля содержит только визуальные настройки, источники и манифесты плагинов. Пароли, приватные ключи и токены исключены.',
+    themeSettingsLabel: 'Настройки темы и интерфейса',
+    sourcesLabel: 'Источники каталогов плагинов',
+    pluginsLabel: 'Плагины профиля',
+    diffChanges: 'изменений',
+    diffNoChanges: 'Без изменений',
+    diffNew: 'новых',
+    diffAllConnected: 'Все подключены',
+    actionInstall: 'установить',
+    actionEnable: 'включить',
+    actionInstalled: 'установлен',
+    applyingProfile: 'Применение профиля...',
+    applyProfile: 'Применить профиль',
+
+    // Bottom Dock Strip
+    dockProblems: 'Проблемы',
+    dockOutput: 'Вывод',
+    dockOutputTitle: '📋 Журнал вывода и аудита',
+    dockProblemsTitle: '🔍 Проблемы и синтаксический анализ',
+    dockNoProblems: 'Проблем не обнаружено. Структура конфигурации валидна.',
+    dockNoOutput: 'Событий вывода пока нет',
+    dockErrors: 'ошибок',
+    dockWarnings: 'предупреждений',
+    dockToggleTooltip: 'Переключить нижний док (Ctrl+~ / Ctrl+J)',
+    dockResizeTooltip: 'Потяните для изменения высоты панели',
+    dockRefreshTooltip: 'Обновить журнал',
+    dockMaximizeTooltip: 'Во весь экран',
+    dockRestoreTooltip: 'Свернуть из полного экрана',
+    dockCloseTooltip: 'Свернуть нижний док',
   },
   en: {
     appTitle: 'Application Title',
@@ -268,5 +361,98 @@ export const translations = {
     version: 'Version',
     permissions: 'Permissions',
     fileMatches: 'Supported files',
+
+    // Tab Profile & Sources
+    tabProfile: 'Profile & Sources',
+    headerPluginsTitle: 'Plugins',
+    headerPluginsActive: 'active',
+
+    // Audit Details Toggle
+    hideDetails: '▲ Hide Details',
+    showDetails: '▼ Show Event Details',
+    auditRefreshing: 'Refreshing audit trail...',
+    auditExporting: 'Exporting...',
+
+    // Bottom Dock Settings
+    dockStripSetting: 'Bottom Dock Strip',
+    dockModeAuto: 'Auto (Zero-Clutter)',
+    dockModeAutoDesc: 'Hidden when no active plugins',
+    dockModeAlways: 'Always Visible',
+    dockModeAlwaysDesc: '28px bottom dock bar',
+    dockModeHidden: 'Disabled',
+    dockModeHiddenDesc: 'Always hidden',
+
+    // Structure Guard Settings
+    structureGuardDesc:
+      'Dual AST-syntax validation (YAML, JSON, TOML, .env, Nginx) before writing to disk. When errors are found, sensitive files are protected with a Force Save prompt.',
+    criticalPatternsLabel: 'Custom sensitive file patterns (one per line):',
+    criticalPatternsHelp: 'Default system masks are always active:',
+
+    // Profile Portability & Sources
+    profilePortabilityTitle: '1-Click Profile Portability',
+    profilePortabilityDesc:
+      'Export your themes, Deep Guard rules, and plugin list for instant deployment on any workstation or server.',
+    exportProfileBtn: 'Export Profile (.json)',
+    importProfileBtn: 'Import Profile (.json)',
+    secretsExcludedNote: 'Passwords and secrets excluded by default',
+    sourcesTitle: 'Trusted Plugin Sources',
+    sourcesDesc:
+      'Registries from which Config Studio fetches official and community extensions.',
+    syncSources: 'Sync',
+    syncingSources: 'Syncing...',
+    addSourceBtn: 'Add Source',
+    addSourceTitle: 'Connect New Plugin Source',
+    sourceNameLabel: 'Source Name',
+    sourceNamePlaceholder: 'e.g. Internal DevOps Registry',
+    sourceUrlLabel: 'URL to registry.json',
+    saveSourceBtn: 'Save Source',
+    addingSource: 'Adding...',
+    loadingSources: 'Loading plugin sources...',
+    noSources: 'No plugin sources connected',
+    officialBadge: 'Official',
+    communityBadge: 'Community',
+    pluginsCountSuffix: 'plugins',
+    syncedPrefix: 'Synced:',
+    deleteSourceTitle: 'Delete source',
+    deletePluginTitle: 'Delete plugin',
+    refreshPluginsList: 'Refresh plugins list',
+    installHelpNote: 'Install modules from the catalog below, via ZIP upload, or from a GitHub repository.',
+    githubUrlTip:
+      'Direct links to GitHub repositories (e.g. https://github.com/author/plugin) or direct .zip archives are supported.',
+
+    // Profile Import Modal
+    importProfileModalTitle: 'Import Config Studio Profile',
+    exportedAtPrefix: 'Exported:',
+    safeTransferBadge: '100% Safe Portability:',
+    safeTransferExplanation:
+      'profile file contains only visual preferences, source catalogs, and plugin manifests. Passwords, auth keys, and tokens are strictly excluded.',
+    themeSettingsLabel: 'Theme & UI Preferences',
+    sourcesLabel: 'Plugin Sources & Registries',
+    pluginsLabel: 'Profile Plugins',
+    diffChanges: 'changes',
+    diffNoChanges: 'No changes',
+    diffNew: 'new',
+    diffAllConnected: 'All connected',
+    actionInstall: 'install',
+    actionEnable: 'enable',
+    actionInstalled: 'installed',
+    applyingProfile: 'Applying profile...',
+    applyProfile: 'Apply Profile',
+
+    // Bottom Dock Strip
+    dockProblems: 'Problems',
+    dockOutput: 'Output',
+    dockOutputTitle: '📋 Core Output & Audit Stream',
+    dockProblemsTitle: '🔍 Diagnostic & Syntax Issues',
+    dockNoProblems: 'No issues detected. Configuration syntax is valid.',
+    dockNoOutput: 'No output events recorded yet',
+    dockErrors: 'errors',
+    dockWarnings: 'warnings',
+    dockToggleTooltip: 'Toggle Bottom Dock (Ctrl+~ / Ctrl+J)',
+    dockResizeTooltip: 'Drag to resize dock height',
+    dockRefreshTooltip: 'Refresh logs',
+    dockMaximizeTooltip: 'Maximize',
+    dockRestoreTooltip: 'Restore size',
+    dockCloseTooltip: 'Collapse dock',
   },
 };
