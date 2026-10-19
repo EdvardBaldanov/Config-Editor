@@ -374,6 +374,15 @@
   - [ ] Zero-Disk / In-Memory монтирование: считывание плагина прямо в память ядра без распаковки во временные папки на диске (`tmpDir`).
   - [ ] Сохранение режима разработки (Dev Mode): поддержка распакованных папок и ZIP-архивов в режиме повышенных привилегий для hot-reload и быстрой отладки.
   - [ ] Инструмент сборки (Compiler/Packer): CLI-команда `config-studio pack <dir> -o <name>.cspkg` и 1-Click экспорт из интерфейса настроек.
+- [ ] **Синхронизация документации плагинов ([config-studio-plugin-docs](https://github.com/EdvardBaldanov/config-studio-plugin-docs))**:
+  - [ ] Обновление спецификации манифеста `plugin.json` (права `permissions`, зависимости `dependencies` с SemVer).
+  - [ ] Документирование новых API-мостов:
+    - Контекстное меню (`window.ConfigStudio.registerContextMenu`, группы, шорткаты, `fileMatches`).
+    - Шина межплагинных сервисов (`registerService` / `getService` / Security Guard).
+    - Безопасное хранилище секретов (`secrets.get`, `secrets.listShared`, `secrets.list`).
+    - Локализация плагинов (`locales/*.json` и scoped `getPluginT`).
+  - [ ] Спецификация нового бинарного формата `.cspkg` и инструкция по упаковке/сборке.
+  - [ ] Обновление TypeScript SDK типингов (`ConfigStudioAPI`, `ContextMenuItem`, `SecretItem`).
 
 ### 🖧 ФАЗА 2A: Системное администрирование и инфраструктура (Sysadmin & Fleet)
 - [ ] **config-studio-ssh**:
