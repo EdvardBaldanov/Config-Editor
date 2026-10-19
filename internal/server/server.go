@@ -11,10 +11,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"config-studio/internal/audit"
 	"config-studio/internal/config"
 	appfs "config-studio/internal/fs"
 	"config-studio/internal/plugin"
@@ -32,18 +34,20 @@ type Server struct {
 	fs           *appfs.Service
 	plugins      *plugin.Manager
 	pluginRunner *plugin.Runner
+	audit        *audit.Logger
 	handler      http.Handler
 	sessionsMu   sync.RWMutex
 	sessions     map[string]time.Time
 }
 
-func NewServer(cfg Config, cfgMgr *config.Manager, fsSvc *appfs.Service, pMgr *plugin.Manager, pRunner *plugin.Runner) *Server {
+func NewServer(cfg Config, cfgMgr *config.Manager, fsSvc *appfs.Service, pMgr *plugin.Manager, pRunner *plugin.Runner, auditLogger *audit.Logger) *Server {
 	s := &Server{
 		cfg:          cfg,
 		config:       cfgMgr,
 		fs:           fsSvc,
 		plugins:      pMgr,
 		pluginRunner: pRunner,
+		audit:        auditLogger,
 		sessions:     make(map[string]time.Time),
 	}
 	s.setupRoutes()
@@ -92,6 +96,10 @@ func (s *Server) setupRoutes() {
 	mux.HandleFunc("POST /api/plugin-processes/stop", s.handleStopPluginProcess)
 	mux.HandleFunc("GET /api/plugin-processes", s.handleListPluginProcesses)
 	mux.HandleFunc("GET /api/plugin-processes/{id}/logs", s.handleGetPluginProcessLogs)
+
+	// Audit Log APIs
+	mux.HandleFunc("GET /api/audit/logs", s.handleGetAuditLogs)
+	mux.HandleFunc("GET /api/audit/export", s.handleExportAuditLogs)
 
 	// Health check
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
@@ -486,11 +494,20 @@ func (s *Server) handleGetFileInfo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) getAuditUser(r *http.Request) string {
+	authed, user := s.isRequestAuthenticated(r)
+	if authed && user != "" {
+		return user
+	}
+	return "admin"
+}
+
 func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
 		Backup  bool   `json:"backup"`
+		Force   bool   `json:"force"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -506,6 +523,30 @@ func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
 	if err := s.fs.WriteFile(req.Path, []byte(req.Content), req.Backup); err != nil {
 		jsonError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+
+	if s.audit != nil {
+		hash := sha256.Sum256([]byte(req.Content))
+		action := audit.ActionFileSave
+		severity := audit.SeverityInfo
+		if req.Force {
+			action = audit.ActionFileForceSave
+			severity = audit.SeverityWarn
+		}
+
+		_ = s.audit.Log(audit.Event{
+			User:     s.getAuditUser(r),
+			IP:       r.RemoteAddr,
+			Action:   action,
+			Severity: severity,
+			Target:   req.Path,
+			Details: map[string]any{
+				"backup": req.Backup,
+				"bytes":  len(req.Content),
+				"sha256": hex.EncodeToString(hash[:]),
+				"force":  req.Force,
+			},
+		})
 	}
 
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "saved", "path": req.Path})
@@ -532,6 +573,17 @@ func (s *Server) handleCreateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.audit != nil {
+		_ = s.audit.Log(audit.Event{
+			User:     s.getAuditUser(r),
+			IP:       r.RemoteAddr,
+			Action:   "file.create",
+			Severity: audit.SeverityInfo,
+			Target:   req.Path,
+			Details:  map[string]any{"isDir": req.IsDir},
+		})
+	}
+
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "created", "path": req.Path})
 }
 
@@ -553,6 +605,16 @@ func (s *Server) handleDeleteItem(w http.ResponseWriter, r *http.Request) {
 	if err := s.fs.DeleteItem(req.Path); err != nil {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if s.audit != nil {
+		_ = s.audit.Log(audit.Event{
+			User:     s.getAuditUser(r),
+			IP:       r.RemoteAddr,
+			Action:   audit.ActionFileDelete,
+			Severity: audit.SeverityWarn,
+			Target:   req.Path,
+		})
 	}
 
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "deleted", "path": req.Path})
@@ -577,6 +639,17 @@ func (s *Server) handleRenameItem(w http.ResponseWriter, r *http.Request) {
 	if err := s.fs.RenameItem(req.OldPath, req.NewPath); err != nil {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if s.audit != nil {
+		_ = s.audit.Log(audit.Event{
+			User:     s.getAuditUser(r),
+			IP:       r.RemoteAddr,
+			Action:   audit.ActionFileRename,
+			Severity: audit.SeverityInfo,
+			Target:   req.OldPath,
+			Details:  map[string]any{"newPath": req.NewPath},
+		})
 	}
 
 	jsonResponse(w, http.StatusOK, map[string]string{
@@ -641,5 +714,51 @@ func (s *Server) handleSearchFiles(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, map[string]any{
 		"items": items,
 	})
+}
+
+func (s *Server) handleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
+	if s.audit == nil {
+		jsonResponse(w, http.StatusOK, audit.QueryResult{Events: []audit.Event{}, Total: 0})
+		return
+	}
+
+	limit := 50
+	if lStr := r.URL.Query().Get("limit"); lStr != "" {
+		if l, err := strconv.Atoi(lStr); err == nil && l > 0 && l <= 500 {
+			limit = l
+		}
+	}
+
+	offset := 0
+	if oStr := r.URL.Query().Get("offset"); oStr != "" {
+		if o, err := strconv.Atoi(oStr); err == nil && o >= 0 {
+			offset = o
+		}
+	}
+
+	action := r.URL.Query().Get("action")
+	severity := r.URL.Query().Get("severity")
+	search := r.URL.Query().Get("search")
+
+	res := s.audit.Query(audit.QueryFilter{
+		Limit:    limit,
+		Offset:   offset,
+		Action:   action,
+		Severity: severity,
+		Search:   search,
+	})
+
+	jsonResponse(w, http.StatusOK, res)
+}
+
+func (s *Server) handleExportAuditLogs(w http.ResponseWriter, r *http.Request) {
+	if s.audit == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"config-studio-audit.jsonl\"")
+	_ = s.audit.Export(w)
 }
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"config-studio/internal/audit"
 	"config-studio/internal/plugin"
 )
 
@@ -39,6 +40,17 @@ func (s *Server) handleTogglePlugin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.audit != nil {
+		_ = s.audit.Log(audit.Event{
+			User:     s.getAuditUser(r),
+			IP:       r.RemoteAddr,
+			Action:   audit.ActionPluginToggle,
+			Severity: audit.SeverityInfo,
+			Target:   req.ID,
+			Details:  map[string]any{"enabled": req.Enabled},
+		})
+	}
+
 	p, err := s.plugins.GetPlugin(req.ID)
 	if err != nil {
 		jsonResponse(w, http.StatusOK, map[string]any{"status": "ok", "id": req.ID, "enabled": req.Enabled})
@@ -71,6 +83,17 @@ func (s *Server) handleInstallPluginUpload(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if s.audit != nil && installed != nil {
+		_ = s.audit.Log(audit.Event{
+			User:     s.getAuditUser(r),
+			IP:       r.RemoteAddr,
+			Action:   audit.ActionPluginInstall,
+			Severity: audit.SeverityInfo,
+			Target:   installed.ID,
+			Details:  map[string]any{"name": installed.Name, "version": installed.Version, "source": "zip"},
+		})
+	}
+
 	jsonResponse(w, http.StatusOK, map[string]any{
 		"status": "installed",
 		"plugin": installed,
@@ -97,6 +120,17 @@ func (s *Server) handleInstallPluginURL(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if s.audit != nil && installed != nil {
+		_ = s.audit.Log(audit.Event{
+			User:     s.getAuditUser(r),
+			IP:       r.RemoteAddr,
+			Action:   audit.ActionPluginInstall,
+			Severity: audit.SeverityInfo,
+			Target:   installed.ID,
+			Details:  map[string]any{"name": installed.Name, "version": installed.Version, "url": req.URL, "source": "url"},
+		})
+	}
+
 	jsonResponse(w, http.StatusOK, map[string]any{
 		"status": "installed",
 		"plugin": installed,
@@ -113,6 +147,16 @@ func (s *Server) handleDeletePlugin(w http.ResponseWriter, r *http.Request) {
 	if err := s.plugins.DeletePlugin(pluginID); err != nil {
 		jsonError(w, http.StatusInternalServerError, "failed to delete plugin: "+err.Error())
 		return
+	}
+
+	if s.audit != nil {
+		_ = s.audit.Log(audit.Event{
+			User:     s.getAuditUser(r),
+			IP:       r.RemoteAddr,
+			Action:   audit.ActionPluginDelete,
+			Severity: audit.SeverityWarn,
+			Target:   pluginID,
+		})
 	}
 
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "deleted", "id": pluginID})
@@ -153,6 +197,26 @@ func (s *Server) handleExecPluginCommand(w http.ResponseWriter, r *http.Request)
 	if err != nil && resp == nil {
 		jsonError(w, http.StatusForbidden, err.Error())
 		return
+	}
+
+	if s.audit != nil && resp != nil {
+		sev := audit.SeverityInfo
+		if resp.ExitCode != 0 {
+			sev = audit.SeverityWarn
+		}
+		_ = s.audit.Log(audit.Event{
+			User:     s.getAuditUser(r),
+			IP:       r.RemoteAddr,
+			Action:   audit.ActionShellExec,
+			Severity: sev,
+			Target:   req.PluginID,
+			Details: map[string]any{
+				"command":    req.Command,
+				"args":       req.Args,
+				"exitCode":   resp.ExitCode,
+				"durationMs": resp.DurationMs,
+			},
+		})
 	}
 
 	jsonResponse(w, http.StatusOK, resp)

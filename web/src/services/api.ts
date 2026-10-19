@@ -1,4 +1,4 @@
-import { Settings, FileItem, FileInfo, PluginItem, ProcessInfo } from '../types';
+import { Settings, FileItem, FileInfo, PluginItem, ProcessInfo, AuditEvent, AuditQueryResponse } from '../types';
 
 let remoteEndpoint: string | null = localStorage.getItem('cs_active_remote_endpoint');
 let remoteToken: string | null = localStorage.getItem('cs_active_remote_token');
@@ -125,11 +125,11 @@ export const api = {
     return res.json();
   },
 
-  async saveFile(path: string, content: string, backup: boolean = true): Promise<void> {
+  async saveFile(path: string, content: string, backup: boolean = true, force: boolean = false): Promise<void> {
     const res = await webFetch('/api/fs/file', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, content, backup }),
+      body: JSON.stringify({ path, content, backup, force }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -323,5 +323,29 @@ export const api = {
     if (!res.ok) return '';
     const data = await res.json().catch(() => ({}));
     return data.logs || '';
+  },
+
+  async getAuditLogs(params: {
+    limit?: number;
+    offset?: number;
+    action?: string;
+    severity?: string;
+    search?: string;
+  } = {}): Promise<AuditQueryResponse> {
+    const query = new URLSearchParams();
+    if (params.limit) query.set('limit', String(params.limit));
+    if (params.offset) query.set('offset', String(params.offset));
+    if (params.action) query.set('action', params.action);
+    if (params.severity) query.set('severity', params.severity);
+    if (params.search) query.set('search', params.search);
+
+    const res = await webFetch(`/api/audit/logs?${query.toString()}`);
+    if (!res.ok) return { events: [], total: 0 };
+    return res.json();
+  },
+
+  getAuditExportUrl(): string {
+    const baseUrl = remoteEndpoint ? remoteEndpoint.replace(/\/$/, '') : '';
+    return `${baseUrl}/api/audit/export`;
   },
 };

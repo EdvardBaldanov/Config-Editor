@@ -292,8 +292,8 @@
 
 ### 🛡️ ФАЗА 1: Ядро редактора (Core First — Web & Engine Foundation)
 - [ ] **1.0 Core Security & Audit Trail**:
+  - [x] Встроенный журнал аудита (Core Audit Log) для фиксации всех критических операций (сохранение, SSH, deploy, MCP).
   - [ ] Манифест разрешений (Capabilities: `fs`, `shell`, `secrets`, `remote`) и экран согласия (Consent Dialog).
-  - [ ] Встроенный журнал аудита (Core Audit Log) для фиксации всех критических операций (сохранение, SSH, deploy, MCP).
   - [ ] Безопасное хранилище секретов (OS Keychain / Credential Manager, исключение из экспорта).
   - [ ] Защищенный RPC/Proxy мост межплагинных сервисов.
 - [ ] **1.1 Core Config Guard & Pre-Save Guard**:

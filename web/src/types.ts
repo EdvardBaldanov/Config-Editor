@@ -128,3 +128,21 @@ export interface OpenFile {
   language: string;
   revisions: FileRevision[];
 }
+
+export type AuditSeverity = 'info' | 'warn' | 'critical';
+
+export interface AuditEvent {
+  id: string;
+  timestamp: string;
+  user: string;
+  ip: string;
+  action: string;
+  severity: AuditSeverity;
+  target: string;
+  details?: Record<string, any>;
+}
+
+export interface AuditQueryResponse {
+  events: AuditEvent[];
+  total: number;
+}

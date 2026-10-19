@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"config-studio/internal/audit"
 	"config-studio/internal/config"
 	appfs "config-studio/internal/fs"
 	"config-studio/internal/plugin"
@@ -86,6 +87,14 @@ func main() {
 		log.Fatalf("Failed to initialize plugin manager: %v", err)
 	}
 
+	// Initialize core audit logger
+	auditLogger, err := audit.NewLogger(*dataDir)
+	if err != nil {
+		log.Printf("Warning: failed to initialize audit logger: %v", err)
+	} else {
+		defer auditLogger.Close()
+	}
+
 	// Prepare embedded Web FS
 	subFS, err := web.GetFS()
 	if err != nil {
@@ -98,7 +107,7 @@ func main() {
 		WebFS:    subFS,
 	}
 
-	appServer := server.NewServer(srvConfig, cfgMgr, fsSvc, pluginMgr, pluginRunner)
+	appServer := server.NewServer(srvConfig, cfgMgr, fsSvc, pluginMgr, pluginRunner, auditLogger)
 
 	addr := fmt.Sprintf("0.0.0.0:%d", *port)
 	httpServer := &http.Server{

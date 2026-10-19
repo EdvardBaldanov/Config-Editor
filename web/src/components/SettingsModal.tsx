@@ -25,8 +25,12 @@ import {
   ShieldAlert,
   Sparkles,
   Download,
+  ScrollText,
+  AlertOctagon,
+  Info,
+  Search,
 } from 'lucide-react';
-import { Settings, PluginItem } from '../types';
+import { Settings, PluginItem, AuditEvent } from '../types';
 import { translations, Language } from '../utils/i18n';
 import { copyToClipboard } from '../utils/color';
 import { api } from '../services/api';
@@ -90,7 +94,7 @@ const OFFICIAL_CATALOG: CatalogPlugin[] = [
   },
 ];
 
-type SettingsTab = 'general' | 'security' | 'plugins';
+type SettingsTab = 'general' | 'security' | 'plugins' | 'audit';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -254,6 +258,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  // Audit Log State
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditSeverity, setAuditSeverity] = useState<string>('');
+  const [auditSearch, setAuditSearch] = useState<string>('');
+  const [expandedAuditId, setExpandedAuditId] = useState<string | null>(null);
+
+  const loadAuditLogs = async (sev = auditSeverity, query = auditSearch) => {
+    setAuditLoading(true);
+    try {
+      const res = await api.getAuditLogs({
+        severity: sev || undefined,
+        search: query.trim() || undefined,
+        limit: 100,
+      });
+      setAuditEvents(res.events || []);
+      setAuditTotal(res.total || 0);
+    } catch (err) {
+      console.error('Failed to load audit logs:', err);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'audit') {
+      loadAuditLogs();
+    }
+  }, [isOpen, activeTab]);
+
   const generateRandomKey = () => {
     const chars = 'abcdef0123456789';
     let key = 'cs_live_';
@@ -389,6 +424,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {pluginsList.length}
                 </span>
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('audit');
+                loadAuditLogs();
+              }}
+              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all ${
+                activeTab === 'audit'
+                  ? 'bg-base-surface text-gray-900 dark:text-white shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <ScrollText size={13} />
+              <span>{t.tabAudit}</span>
             </button>
           </div>
         </div>
@@ -1043,6 +1094,218 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Tab 4: Core Audit Log */}
+        {activeTab === 'audit' && (
+          <div className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
+            {/* Header Description */}
+            <div className="flex items-start justify-between">
+              <div>
+                <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  <ScrollText className="w-4 h-4 text-accent" />
+                  <span>{t.auditTitle}</span>
+                </label>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                  {t.auditDesc}
+                </p>
+              </div>
+
+              {/* Export button */}
+              <a
+                href={api.getAuditExportUrl()}
+                download="config-studio-audit.jsonl"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-700 dark:text-gray-200 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 transition shrink-0"
+              >
+                <Download size={13} className="text-accent" />
+                <span>{t.auditExport}</span>
+              </a>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+              {/* Search input */}
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
+                <input
+                  type="text"
+                  value={auditSearch}
+                  onChange={(e) => {
+                    setAuditSearch(e.target.value);
+                    loadAuditLogs(auditSeverity, e.target.value);
+                  }}
+                  placeholder={t.auditSearchPlaceholder}
+                  className="w-full pl-8 pr-3 py-2 bg-gray-100 dark:bg-black/30 border border-base-border rounded-xl text-xs text-gray-900 dark:text-white focus:outline-none focus:border-accent transition"
+                />
+              </div>
+
+              {/* Severity Filter Pills */}
+              <div className="flex items-center space-x-1 p-1 bg-black/10 dark:bg-black/30 rounded-xl border border-base-border shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuditSeverity('');
+                    loadAuditLogs('', auditSearch);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                    auditSeverity === ''
+                      ? 'bg-base-surface text-accent shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {t.auditFilterAll}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuditSeverity('critical');
+                    loadAuditLogs('critical', auditSearch);
+                  }}
+                  className={`px-2 py-1 rounded-lg text-xs font-medium transition flex items-center space-x-1 ${
+                    auditSeverity === 'critical'
+                      ? 'bg-red-500/20 text-red-400 shadow-xs'
+                      : 'text-gray-400 hover:text-red-400'
+                  }`}
+                >
+                  <span>🛑</span>
+                  <span>{t.auditSeverityCritical}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuditSeverity('warn');
+                    loadAuditLogs('warn', auditSearch);
+                  }}
+                  className={`px-2 py-1 rounded-lg text-xs font-medium transition flex items-center space-x-1 ${
+                    auditSeverity === 'warn'
+                      ? 'bg-amber-500/20 text-amber-400 shadow-xs'
+                      : 'text-gray-400 hover:text-amber-400'
+                  }`}
+                >
+                  <span>⚠️</span>
+                  <span>{t.auditSeverityWarn}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuditSeverity('info');
+                    loadAuditLogs('info', auditSearch);
+                  }}
+                  className={`px-2 py-1 rounded-lg text-xs font-medium transition flex items-center space-x-1 ${
+                    auditSeverity === 'info'
+                      ? 'bg-blue-500/20 text-blue-400 shadow-xs'
+                      : 'text-gray-400 hover:text-blue-400'
+                  }`}
+                >
+                  <span>ℹ️</span>
+                  <span>{t.auditSeverityInfo}</span>
+                </button>
+              </div>
+
+              {/* Refresh button */}
+              <button
+                type="button"
+                onClick={() => loadAuditLogs()}
+                disabled={auditLoading}
+                className="p-2 rounded-xl bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-gray-400 hover:text-white transition shrink-0"
+                title={t.auditRefresh}
+              >
+                <RefreshCw size={14} className={auditLoading ? 'animate-spin text-accent' : ''} />
+              </button>
+            </div>
+
+            {/* Total Count and Status */}
+            <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 px-1">
+              <span>{t.auditTotal}: {auditTotal}</span>
+              {auditLoading && <span className="text-accent">Обновление журнала...</span>}
+            </div>
+
+            {/* Events List */}
+            {auditEvents.length === 0 ? (
+              <div className="p-8 text-center rounded-2xl bg-gray-100/50 dark:bg-black/20 border border-base-border space-y-2">
+                <ScrollText className="w-8 h-8 text-gray-400 mx-auto opacity-40" />
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {auditSearch || auditSeverity ? t.auditNoMatches : t.auditEmpty}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {auditEvents.map((evt) => {
+                  const isExpanded = expandedAuditId === evt.id;
+                  const dateStr = new Date(evt.timestamp).toLocaleString();
+                  const isCritical = evt.severity === 'critical';
+                  const isWarn = evt.severity === 'warn';
+
+                  return (
+                    <div
+                      key={evt.id}
+                      className={`p-3 rounded-xl border transition ${
+                        isCritical
+                          ? 'bg-red-500/5 border-red-500/30'
+                          : isWarn
+                          ? 'bg-amber-500/5 border-amber-500/30'
+                          : 'bg-black/10 dark:bg-black/25 border-base-border hover:border-gray-500/30'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                          {/* Severity badge */}
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase ${
+                              isCritical
+                                ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                                : isWarn
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                                : 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                            }`}
+                          >
+                            {evt.severity}
+                          </span>
+
+                          {/* Action badge */}
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-medium bg-black/20 dark:bg-white/10 text-gray-300">
+                            {evt.action}
+                          </span>
+
+                          {/* Target */}
+                          <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 font-mono">
+                            {evt.target}
+                          </span>
+                        </div>
+
+                        {/* Timestamp & User */}
+                        <div className="text-right shrink-0 text-[10px] text-gray-400">
+                          <div>{dateStr}</div>
+                          <div className="text-gray-500 font-mono">
+                            {evt.user} {evt.ip ? `(${evt.ip})` : ''}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Details toggler */}
+                      {evt.details && Object.keys(evt.details).length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-base-border/50">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedAuditId(isExpanded ? null : evt.id)}
+                            className="text-[10px] text-accent hover:underline flex items-center space-x-1"
+                          >
+                            <span>{isExpanded ? '▲ Скрыть детали' : '▼ Показать детали события'}</span>
+                          </button>
+
+                          {isExpanded && (
+                            <pre className="mt-1.5 p-2 rounded-lg bg-black/40 border border-base-border text-[10px] font-mono text-gray-300 overflow-x-auto max-h-36">
+                              {JSON.stringify(evt.details, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
