@@ -9,9 +9,10 @@ import { LoginScreen } from './components/LoginScreen';
 import { PluginSplitPanel } from './components/PluginSplitPanel';
 import { PluginBottomPanel } from './components/PluginBottomPanel';
 import { CommandConfirmModal } from './components/CommandConfirmModal';
-import { api } from './services/api';
+import { PreSaveGuardModal } from './components/PreSaveGuardModal';
+import { api, PreSaveGuardError } from './services/api';
 import { pluginManager, PluginSystemState } from './services/pluginLoader';
-import { Settings, FileItem, OpenFile, FileRevision } from './types';
+import { Settings, FileItem, OpenFile, FileRevision, GuardIssue, GuardValidationResult } from './types';
 import { parseContentToOutline } from './utils/astParser';
 import { translations, Language } from './utils/i18n';
 import { adjustBrightness, getLuminance } from './utils/color';
@@ -52,6 +53,9 @@ export const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [settingsTab, setSettingsTab] = useState<'general' | 'security' | 'plugins' | 'audit'>('general');
   const [isPropertiesOpen, setIsPropertiesOpen] = useState<boolean>(false);
+  const [preSaveGuardIssue, setPreSaveGuardIssue] = useState<GuardIssue | null>(null);
+  const [isPreSaveGuardOpen, setIsPreSaveGuardOpen] = useState<boolean>(false);
+  const [guardResult, setGuardResult] = useState<GuardValidationResult | null>(null);
 
   const editorRef = useRef<any>(null);
   const t = translations[settings.language] || translations.ru;
@@ -304,11 +308,28 @@ export const App: React.FC = () => {
     );
   };
 
-  const handleSaveFile = async () => {
+  // Background real-time Structure Guard check
+  useEffect(() => {
+    if (!currentFile) {
+      setGuardResult(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.validateGuard(currentFile.path, currentFile.content);
+        setGuardResult(res);
+      } catch {
+        // ignore validation background error
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [currentFile?.path, currentFile?.content]);
+
+  const handleSaveFile = async (force: boolean = false) => {
     if (!currentFile) return;
     setIsSaving(true);
     try {
-      await api.saveFile(currentFile.path, currentFile.content, true);
+      await api.saveFile(currentFile.path, currentFile.content, true, force);
 
       // Create a revision snapshot
       const currentLines = currentFile.content.split('\n').length;
@@ -334,11 +355,27 @@ export const App: React.FC = () => {
         )
       );
 
+      setIsPreSaveGuardOpen(false);
+      setPreSaveGuardIssue(null);
       pluginManager.notifyFileSave(currentFile);
     } catch (err: any) {
-      alert(`Failed to save file: ${err.message}`);
+      if (err instanceof PreSaveGuardError) {
+        setPreSaveGuardIssue(err.guard);
+        setIsPreSaveGuardOpen(true);
+      } else {
+        alert(`Failed to save file: ${err.message}`);
+      }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleCloseGuardModal = (targetLine?: number, targetCol?: number) => {
+    setIsPreSaveGuardOpen(false);
+    if (editorRef.current && targetLine) {
+      editorRef.current.revealLineInCenter(targetLine);
+      editorRef.current.setPosition({ lineNumber: targetLine, column: targetCol || 1 });
+      editorRef.current.focus();
     }
   };
 
@@ -522,6 +559,13 @@ export const App: React.FC = () => {
             settings={settings}
             outline={outline}
             pluginButtons={pluginState.toolbarButtons}
+            guardResult={guardResult}
+            onOpenGuardModal={() => {
+              if (guardResult && guardResult.issues.length > 0) {
+                setPreSaveGuardIssue(guardResult.issues[0]);
+              }
+              setIsPreSaveGuardOpen(true);
+            }}
             onSelectTab={setActiveTabPath}
             onCloseTab={handleCloseTab}
             onChangeContent={handleContentChange}
@@ -586,6 +630,16 @@ export const App: React.FC = () => {
           pendingConfirm?.resolve(false);
           setPendingConfirm(null);
         }}
+      />
+
+      {/* Structure Guard / Pre-Save Guard Modal */}
+      <PreSaveGuardModal
+        isOpen={isPreSaveGuardOpen}
+        issue={preSaveGuardIssue}
+        filePath={currentFile?.path || ''}
+        isSaving={isSaving}
+        onClose={handleCloseGuardModal}
+        onForceSave={() => handleSaveFile(true)}
       />
     </div>
   );

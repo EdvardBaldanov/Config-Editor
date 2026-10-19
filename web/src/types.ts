@@ -14,6 +14,8 @@ export interface Settings {
   apiEnabled: boolean;
   apiKey?: string;
   pluginExecUnrestricted?: boolean;
+  structureGuardEnabled?: boolean;
+  criticalPatterns?: string[];
 }
 
 export interface PluginManifest {
@@ -152,4 +154,22 @@ export interface AuditEvent {
 export interface AuditQueryResponse {
   events: AuditEvent[];
   total: number;
+}
+
+export type GuardSeverity = 'critical' | 'warning' | 'info';
+
+export interface GuardIssue {
+  file: string;
+  severity: GuardSeverity;
+  line: number;
+  column: number;
+  message: string;
+  snippet?: string;
+  rule: string;
+}
+
+export interface GuardValidationResult {
+  valid: boolean;
+  isGuarded: boolean;
+  issues: GuardIssue[];
 }

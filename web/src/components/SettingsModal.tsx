@@ -23,6 +23,7 @@ import {
   FileArchive,
   Terminal,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Download,
   ScrollText,
@@ -131,6 +132,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // Plugins & Host Exec Mode
   const [pluginExecUnrestricted, setPluginExecUnrestricted] = useState(
     settings.pluginExecUnrestricted || false
+  );
+  const [structureGuardEnabled, setStructureGuardEnabled] = useState(
+    settings.structureGuardEnabled !== false
+  );
+  const [criticalPatterns, setCriticalPatterns] = useState<string>(
+    (settings.criticalPatterns || []).join('\n')
   );
   const [pluginsList, setPluginsList] = useState<PluginItem[]>([]);
   const [isLoadingPlugins, setIsLoadingPlugins] = useState(false);
@@ -362,6 +369,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         apiEnabled,
         apiKey: activeKey,
         pluginExecUnrestricted,
+        structureGuardEnabled,
+        criticalPatterns: criticalPatterns
+          .split('\n')
+          .map((p) => p.trim())
+          .filter((p) => p.length > 0),
       };
       if (authPass) {
         payload.authPass = authPass;
@@ -385,6 +397,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setApiEnabled(false);
     setApiKey('');
     setPluginExecUnrestricted(false);
+    setStructureGuardEnabled(true);
+    setCriticalPatterns('');
   };
 
   if (!isOpen) return null;
@@ -807,6 +821,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex items-center space-x-2 text-[11px] text-emerald-600 dark:text-emerald-400 pt-1">
                   <Check className="w-3.5 h-3.5" />
                   <span>{t.apiDisabledNote}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Structure Guard (Deep Pre-Save Validation) */}
+            <div className="p-4 rounded-2xl bg-gray-100/60 dark:bg-black/20 border border-base-border space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Structure Guard & Pre-Save Guard</span>
+                </label>
+                <input
+                  type="checkbox"
+                  checked={structureGuardEnabled}
+                  onChange={(e) => setStructureGuardEnabled(e.target.checked)}
+                  className="w-4 h-4 text-accent rounded cursor-pointer accent-teal-500"
+                />
+              </div>
+
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">
+                Двойная проверка AST-синтаксиса (YAML, JSON, TOML, .env, Nginx) перед физической записью на диск.
+                При обнаружении синтаксических ошибок сохранение чувствительных конфигов блокируется с предложением исправить ошибку или выполнить осознанный Force Save.
+              </p>
+
+              {structureGuardEnabled && (
+                <div className="space-y-2 pt-2 border-t border-base-border">
+                  <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300">
+                    Пользовательские маски чувствительных файлов (по одной на строку):
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={criticalPatterns}
+                    onChange={(e) => setCriticalPatterns(e.target.value)}
+                    placeholder="*.prod.json&#10;k8s/*.yaml&#10;my-service.conf"
+                    className="w-full px-3 py-2 bg-white dark:bg-black/30 border border-base-border rounded-xl text-xs font-mono text-gray-900 dark:text-white focus:outline-none focus:border-accent"
+                  />
+                  <p className="text-[10px] text-gray-400 leading-normal">
+                    Базовые системные маски активны всегда: <code>docker-compose*.yml</code>, <code>nginx.conf</code>, <code>*.service</code>, <code>.env.production</code>, <code>Caddyfile</code>, <code>*.prod.yaml</code> и др.
+                  </p>
                 </div>
               )}
             </div>

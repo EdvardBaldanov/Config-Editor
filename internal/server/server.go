@@ -19,6 +19,7 @@ import (
 	"config-studio/internal/audit"
 	"config-studio/internal/config"
 	appfs "config-studio/internal/fs"
+	"config-studio/internal/guard"
 	"config-studio/internal/plugin"
 )
 
@@ -83,6 +84,9 @@ func (s *Server) setupRoutes() {
 	mux.HandleFunc("POST /api/fs/upload", s.handleUploadFile)
 	mux.HandleFunc("GET /api/fs/download", s.handleDownloadFile)
 	mux.HandleFunc("GET /api/fs/search", s.handleSearchFiles)
+
+	// Structure Guard APIs
+	mux.HandleFunc("POST /api/guard/validate", s.handleValidateGuard)
 
 	// Plugin APIs
 	mux.HandleFunc("GET /api/plugins", s.handleListPlugins)
@@ -532,6 +536,30 @@ func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	settings := s.config.Get()
+	if !req.Force && settings.StructureGuardEnabled {
+		if guard.IsSensitive(req.Path, settings.CriticalPatterns, nil) {
+			valResult := guard.Validate(req.Path, []byte(req.Content))
+			if !valResult.Valid {
+				var firstCritical guard.GuardIssue
+				for _, iss := range valResult.Issues {
+					if iss.Severity == guard.SeverityCritical {
+						firstCritical = iss
+						break
+					}
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"error":  "Syntax validation failed for sensitive file",
+					"guard":  firstCritical,
+					"issues": valResult.Issues,
+				})
+				return
+			}
+		}
+	}
+
 	if err := s.fs.WriteFile(req.Path, []byte(req.Content), req.Backup); err != nil {
 		jsonError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -541,9 +569,20 @@ func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
 		hash := sha256.Sum256([]byte(req.Content))
 		action := audit.ActionFileSave
 		severity := audit.SeverityInfo
+		details := map[string]any{
+			"backup": req.Backup,
+			"bytes":  len(req.Content),
+			"sha256": hex.EncodeToString(hash[:]),
+			"force":  req.Force,
+		}
 		if req.Force {
 			action = audit.ActionFileForceSave
 			severity = audit.SeverityWarn
+			valResult := guard.Validate(req.Path, []byte(req.Content))
+			if !valResult.Valid && len(valResult.Issues) > 0 {
+				details["ignored_error"] = valResult.Issues[0].Message
+				details["ignored_line"] = valResult.Issues[0].Line
+			}
 		}
 
 		_ = s.audit.Log(audit.Event{
@@ -552,16 +591,30 @@ func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
 			Action:   action,
 			Severity: severity,
 			Target:   req.Path,
-			Details: map[string]any{
-				"backup": req.Backup,
-				"bytes":  len(req.Content),
-				"sha256": hex.EncodeToString(hash[:]),
-				"force":  req.Force,
-			},
+			Details:  details,
 		})
 	}
 
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "saved", "path": req.Path})
+}
+
+func (s *Server) handleValidateGuard(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Path    string `json:"path"`
+		Content string `json:"content"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+
+	settings := s.config.Get()
+	isSens := guard.IsSensitive(req.Path, settings.CriticalPatterns, nil)
+	valResult := guard.Validate(req.Path, []byte(req.Content))
+	valResult.IsGuarded = isSens
+
+	jsonResponse(w, http.StatusOK, valResult)
 }
 
 func (s *Server) handleCreateItem(w http.ResponseWriter, r *http.Request) {

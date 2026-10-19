@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import MonacoEditor, { OnMount } from '@monaco-editor/react';
-import { OpenFile, Settings, OutlineNode, ToolbarButtonDef } from '../types';
-import { X, FileCode, Hash, Play, Globe, Server, Terminal, Sparkles } from 'lucide-react';
+import { OpenFile, Settings, OutlineNode, ToolbarButtonDef, GuardValidationResult } from '../types';
+import { X, FileCode, Hash, Play, Globe, Server, Terminal, Sparkles, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { translations } from '../utils/i18n';
 import { getLuminance } from '../utils/color';
 import { pluginManager } from '../services/pluginLoader';
@@ -18,6 +18,8 @@ interface EditorProps {
   onSave: () => void;
   onSelectLine?: (line: number, shouldFocus?: boolean) => void;
   editorRef: React.MutableRefObject<any>;
+  guardResult?: GuardValidationResult | null;
+  onOpenGuardModal?: () => void;
 }
 
 export const Editor: React.FC<EditorProps> = ({
@@ -26,6 +28,8 @@ export const Editor: React.FC<EditorProps> = ({
   settings,
   outline = [],
   pluginButtons = [],
+  guardResult = null,
+  onOpenGuardModal,
   onSelectTab,
   onCloseTab,
   onChangeContent,
@@ -253,33 +257,55 @@ export const Editor: React.FC<EditorProps> = ({
           })}
         </div>
 
-        {/* Plugin Action Buttons (e.g. Live Preview) */}
-        {visiblePluginButtons.length > 0 && (
-          <div className="flex items-center space-x-1.5 pl-2 shrink-0">
-            {visiblePluginButtons.map((btn) => {
-              const renderIcon = () => {
-                if (btn.icon === 'globe') return <Globe size={12} />;
-                if (btn.icon === 'server') return <Server size={12} />;
-                if (btn.icon === 'terminal') return <Terminal size={12} />;
-                if (btn.icon === 'sparkles') return <Sparkles size={12} />;
-                if (btn.icon && btn.icon.length <= 4) return <span className="text-xs">{btn.icon}</span>;
-                return <Play size={11} fill="currentColor" />;
-              };
+        {/* Right Action Area: Guard Pill & Plugin Buttons */}
+        <div className="flex items-center space-x-1.5 pl-2 shrink-0">
+          {/* Structure Guard Status Pill */}
+          {currentFile && guardResult?.isGuarded && (
+            !guardResult.valid && guardResult.issues.length > 0 ? (
+              <button
+                type="button"
+                onClick={onOpenGuardModal}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30 transition cursor-pointer"
+                title="Обнаружена синтаксическая ошибка! Нажмите, чтобы открыть Pre-Save Guard"
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+                <span>Deep Guard ({guardResult.issues.length})</span>
+              </button>
+            ) : (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/30"
+                title="Файл защищен: синтаксис проверяется перед сохранением"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+                <span>Deep Guard</span>
+              </div>
+            )
+          )}
 
-              return (
-                <button
-                  key={btn.id}
-                  onClick={btn.onClick}
-                  title={btn.title || btn.label}
-                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-accent text-gray-900 hover:opacity-90 shadow-sm transition flex items-center space-x-1.5 cursor-pointer"
-                >
-                  {renderIcon()}
-                  <span>{btn.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+          {/* Plugin Action Buttons (e.g. Live Preview) */}
+          {visiblePluginButtons.map((btn) => {
+            const renderIcon = () => {
+              if (btn.icon === 'globe') return <Globe size={12} />;
+              if (btn.icon === 'server') return <Server size={12} />;
+              if (btn.icon === 'terminal') return <Terminal size={12} />;
+              if (btn.icon === 'sparkles') return <Sparkles size={12} />;
+              if (btn.icon && btn.icon.length <= 4) return <span className="text-xs">{btn.icon}</span>;
+              return <Play size={11} fill="currentColor" />;
+            };
+
+            return (
+              <button
+                key={btn.id}
+                onClick={btn.onClick}
+                title={btn.title || btn.label}
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-accent text-gray-900 hover:opacity-90 shadow-sm transition flex items-center space-x-1.5 cursor-pointer"
+              >
+                {renderIcon()}
+                <span>{btn.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Quick Jump Root Tag Cloud placed under the tabs */}

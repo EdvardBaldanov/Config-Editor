@@ -1,4 +1,15 @@
-import { Settings, FileItem, FileInfo, PluginItem, PendingInstall, ProcessInfo, AuditEvent, AuditQueryResponse } from '../types';
+import { Settings, FileItem, FileInfo, PluginItem, PendingInstall, ProcessInfo, AuditEvent, AuditQueryResponse, GuardIssue, GuardValidationResult } from '../types';
+
+export class PreSaveGuardError extends Error {
+  guard: GuardIssue;
+  issues: GuardIssue[];
+  constructor(message: string, guard: GuardIssue, issues: GuardIssue[] = []) {
+    super(message);
+    this.name = 'PreSaveGuardError';
+    this.guard = guard;
+    this.issues = issues;
+  }
+}
 
 let remoteEndpoint: string | null = localStorage.getItem('cs_active_remote_endpoint');
 let remoteToken: string | null = localStorage.getItem('cs_active_remote_token');
@@ -133,8 +144,23 @@ export const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      if (res.status === 422 && err.guard) {
+        throw new PreSaveGuardError(err.error || 'Syntax validation failed for sensitive file', err.guard, err.issues || []);
+      }
       throw new Error(err.error || 'Failed to save file');
     }
+  },
+
+  async validateGuard(path: string, content: string): Promise<GuardValidationResult> {
+    const res = await webFetch('/api/guard/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, content }),
+    });
+    if (!res.ok) {
+      throw new Error('Failed to validate guard');
+    }
+    return res.json();
   },
 
   async createItem(path: string, isDir: boolean): Promise<void> {

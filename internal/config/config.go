@@ -22,9 +22,11 @@ type Settings struct {
 	AuthEnabled   bool   `json:"authEnabled" yaml:"auth_enabled"`
 	AuthUser      string `json:"authUser" yaml:"auth_user"`
 	AuthPass      string `json:"authPass,omitempty" yaml:"auth_pass,omitempty"`
-	ApiEnabled             bool   `json:"apiEnabled" yaml:"api_enabled"`
-	ApiKey                 string `json:"apiKey,omitempty" yaml:"api_key,omitempty"`
-	PluginExecUnrestricted bool   `json:"pluginExecUnrestricted" yaml:"plugin_exec_unrestricted"`
+	ApiEnabled             bool     `json:"apiEnabled" yaml:"api_enabled"`
+	ApiKey                 string   `json:"apiKey,omitempty" yaml:"api_key,omitempty"`
+	PluginExecUnrestricted bool     `json:"pluginExecUnrestricted" yaml:"plugin_exec_unrestricted"`
+	StructureGuardEnabled  bool     `json:"structureGuardEnabled" yaml:"structure_guard_enabled"`
+	CriticalPatterns       []string `json:"criticalPatterns" yaml:"critical_patterns"`
 }
 
 type Manager struct {
@@ -48,6 +50,8 @@ func DefaultSettings() Settings {
 		ApiEnabled:             false,
 		ApiKey:                 "",
 		PluginExecUnrestricted: false,
+		StructureGuardEnabled:  true,
+		CriticalPatterns:       []string{},
 	}
 }
 
@@ -100,6 +104,13 @@ func (m *Manager) load() error {
 		}
 	} else {
 		s.HasCustomIcon = false
+	}
+
+	if !strings.Contains(string(data), "structure_guard_enabled") {
+		s.StructureGuardEnabled = true
+	}
+	if s.CriticalPatterns == nil {
+		s.CriticalPatterns = []string{}
 	}
 
 	m.current = s
@@ -190,6 +201,8 @@ func (m *Manager) Update(s Settings) error {
 		m.current.ApiKey = s.ApiKey
 	}
 	m.current.PluginExecUnrestricted = s.PluginExecUnrestricted
+	m.current.StructureGuardEnabled = s.StructureGuardEnabled
+	m.current.CriticalPatterns = s.CriticalPatterns
 
 	return m.save()
 }
