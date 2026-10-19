@@ -72,7 +72,7 @@ func GenerateProfile(
 	sources []Source,
 	installedPlugins []Plugin,
 ) StudioProfile {
-	var profilePlugins []ProfilePlugin
+	profilePlugins := make([]ProfilePlugin, 0, len(installedPlugins))
 	for _, p := range installedPlugins {
 		profilePlugins = append(profilePlugins, ProfilePlugin{
 			ID:        p.Manifest.ID,
@@ -92,6 +92,10 @@ func GenerateProfile(
 			Official: s.Official,
 			Enabled:  s.Enabled,
 		})
+	}
+
+	if appSettings.CriticalPatterns == nil {
+		appSettings.CriticalPatterns = make([]string, 0)
 	}
 
 	return StudioProfile{
@@ -115,7 +119,7 @@ func PreviewProfile(
 		return nil, errors.New("invalid profile format: missing version")
 	}
 
-	var settingsDiff []string
+	settingsDiff := make([]string, 0)
 	if profile.App.AppTitle != "" && profile.App.AppTitle != currentApp.AppTitle {
 		settingsDiff = append(settingsDiff, fmt.Sprintf("Заголовок: %q ➔ %q", currentApp.AppTitle, profile.App.AppTitle))
 	}
@@ -138,10 +142,10 @@ func PreviewProfile(
 		currentSourcesMap[strings.ToLower(strings.TrimSpace(s.URL))] = true
 	}
 
-	var newSources []Source
+	newSources := make([]Source, 0)
 	for _, s := range profile.Sources {
 		cleanURL := strings.ToLower(strings.TrimSpace(s.URL))
-		if !currentSourcesMap[cleanURL] {
+		if cleanURL != "" && !currentSourcesMap[cleanURL] {
 			newSources = append(newSources, s)
 		}
 	}
@@ -152,7 +156,7 @@ func PreviewProfile(
 		installedMap[p.Manifest.ID] = p
 	}
 
-	var pluginsStatus []PluginStatusDiff
+	pluginsStatus := make([]PluginStatusDiff, 0)
 	for _, pp := range profile.Plugins {
 		existing, isInstalled := installedMap[pp.ID]
 		if !isInstalled {
@@ -182,6 +186,13 @@ func PreviewProfile(
 		}
 	}
 
+	if profile.Sources == nil {
+		profile.Sources = make([]Source, 0)
+	}
+	if profile.Plugins == nil {
+		profile.Plugins = make([]ProfilePlugin, 0)
+	}
+
 	return &ProfilePreview{
 		Profile:       profile,
 		SettingsDiff:  settingsDiff,
@@ -198,6 +209,12 @@ func ParseProfileBytes(data []byte) (*StudioProfile, error) {
 	}
 	if profile.Version == "" {
 		return nil, errors.New("profile JSON is missing 'version' property")
+	}
+	if profile.Sources == nil {
+		profile.Sources = make([]Source, 0)
+	}
+	if profile.Plugins == nil {
+		profile.Plugins = make([]ProfilePlugin, 0)
 	}
 	return &profile, nil
 }

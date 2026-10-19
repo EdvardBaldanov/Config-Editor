@@ -102,6 +102,13 @@ func (s *Server) handleImportProfile(w http.ResponseWriter, r *http.Request) {
 		Errors:        []string{},
 	}
 
+	if req.Profile.Sources == nil {
+		req.Profile.Sources = []plugin.Source{}
+	}
+	if req.Profile.Plugins == nil {
+		req.Profile.Plugins = []plugin.ProfilePlugin{}
+	}
+
 	// 1. Apply Settings if requested
 	if req.ApplySettings {
 		curr := s.config.Get()

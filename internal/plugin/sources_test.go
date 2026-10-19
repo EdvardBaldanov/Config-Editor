@@ -1,7 +1,9 @@
 package plugin
 
 import (
+	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -136,5 +138,26 @@ func TestProfileExportPreview(t *testing.T) {
 	}
 	if len(preview.PluginsStatus) != 1 || preview.PluginsStatus[0].Action != "to_install" {
 		t.Errorf("expected 1 plugin to install, got %+v", preview.PluginsStatus)
+	}
+
+	// Verify null-safety / empty slice serialization:
+	// When previewing against an identical environment, all slices MUST serialize to `[]`, NOT `null`!
+	samePreview, err := PreviewProfile(prof, appSettings, sources, plugins)
+	if err != nil {
+		t.Fatalf("failed to preview identical profile: %v", err)
+	}
+	previewBytes, err := json.Marshal(samePreview)
+	if err != nil {
+		t.Fatalf("failed to marshal preview: %v", err)
+	}
+	previewStr := string(previewBytes)
+	if strings.Contains(previewStr, `"settingsDiff":null`) {
+		t.Errorf("settingsDiff marshaled to null instead of []: %s", previewStr)
+	}
+	if strings.Contains(previewStr, `"newSources":null`) {
+		t.Errorf("newSources marshaled to null instead of []: %s", previewStr)
+	}
+	if strings.Contains(previewStr, `"pluginsStatus":null`) {
+		t.Errorf("pluginsStatus marshaled to null instead of []: %s", previewStr)
 	}
 }

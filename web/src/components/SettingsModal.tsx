@@ -299,8 +299,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setIsProfileImportModalOpen(false);
       setProfilePreview(null);
 
+      const sourcesAdded = res?.sourcesAdded ?? 0;
+      const queuedCount = res?.pluginsQueued ? res.pluginsQueued.length : 0;
       alert(
-        `Профиль успешно применен! Источников добавлено: ${res.sourcesAdded}, плагинов в очереди: ${res.pluginsQueued.length}`
+        `Профиль успешно применен! Источников добавлено: ${sourcesAdded}, плагинов в очереди: ${queuedCount}`
       );
     } catch (err: any) {
       alert(`Ошибка импорта профиля: ${err.message}`);

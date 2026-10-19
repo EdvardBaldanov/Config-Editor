@@ -38,9 +38,17 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
 
   if (!isOpen || !preview) return null;
 
-  const { profile, settingsDiff, newSources, pluginsStatus } = preview;
-  const toInstallCount = pluginsStatus.filter((p) => p.action === 'to_install').length;
-  const toEnableCount = pluginsStatus.filter((p) => p.action === 'will_enable').length;
+  const profile = preview.profile || { exportedAt: '', app: {}, sources: [], plugins: [] };
+  const settingsDiff = preview.settingsDiff || [];
+  const newSources = preview.newSources || [];
+  const pluginsStatus = preview.pluginsStatus || [];
+
+  const toInstallCount = pluginsStatus.filter((p) => p?.action === 'to_install').length;
+  const toEnableCount = pluginsStatus.filter((p) => p?.action === 'will_enable').length;
+
+  const exportDateStr = profile.exportedAt
+    ? new Date(profile.exportedAt).toLocaleString('ru-RU')
+    : '—';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in select-none">
@@ -56,7 +64,7 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
                 Импорт профиля Config Studio
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Экспортирован: {new Date(profile.exportedAt).toLocaleString('ru-RU')}
+                Экспортирован: {exportDateStr}
               </p>
             </div>
           </div>
