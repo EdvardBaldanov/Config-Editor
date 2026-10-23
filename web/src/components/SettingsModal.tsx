@@ -112,16 +112,16 @@ const OFFICIAL_CATALOG: CatalogPlugin[] = [
   {
     id: 'web-devkit',
     name: 'Web DevKit',
-    version: '1.1.0',
-    description: 'Live Split-Screen preview for HTML/PHP, device responsive simulation, built-in :8085 web server and Monaco autocompletion.',
+    version: '1.2.0',
+    description: 'Live Split-Screen preview for HTML/PHP with Chrome browser tab simulation, :8085 server, and AST structure.',
     locales: {
       ru: {
         name: 'Web DevKit',
-        description: 'Живой Split-Screen предпросмотр HTML/PHP, симуляция экранов устройств, веб-сервер :8085 и автодополнение Monaco.',
+        description: 'Живой Split-Screen предпросмотр HTML/PHP с симуляцией вкладки Chrome, веб-сервер :8085 и AST-структура.',
       },
       en: {
         name: 'Web DevKit',
-        description: 'Live Split-Screen preview for HTML/PHP, device responsive simulation, built-in :8085 web server and Monaco autocompletion.',
+        description: 'Live Split-Screen preview for HTML/PHP with Chrome browser tab simulation, :8085 server, and AST structure.',
       },
     },
     icon: '🌐',
@@ -146,6 +146,44 @@ const OFFICIAL_CATALOG: CatalogPlugin[] = [
     icon: '🖥️',
     repoUrl: 'https://github.com/EdvardBaldanov/config-studio-remote-agent',
     tags: ['Multi-Server', 'VPS', 'Agent', 'Remote'],
+  },
+  {
+    id: 'lang-en',
+    name: 'English Language Pack',
+    version: '1.0.0',
+    description: 'Complete English UI localization for Config Studio.',
+    locales: {
+      ru: {
+        name: 'Английский языковой пакет',
+        description: 'Полная локализация интерфейса Config Studio на английский язык.',
+      },
+      en: {
+        name: 'English Language Pack',
+        description: 'Complete English UI localization for Config Studio.',
+      },
+    },
+    icon: '🇬🇧',
+    repoUrl: 'https://github.com/EdvardBaldanov/config-studio-lang-en',
+    tags: ['Localization', 'Language', 'English'],
+  },
+  {
+    id: 'lang-ru',
+    name: 'Русский языковой пакет',
+    version: '1.0.0',
+    description: 'Полная русская локализация интерфейса Config Studio.',
+    locales: {
+      ru: {
+        name: 'Русский языковой пакет',
+        description: 'Полная русская локализация интерфейса Config Studio.',
+      },
+      en: {
+        name: 'Russian Language Pack',
+        description: 'Complete Russian UI localization for Config Studio.',
+      },
+    },
+    icon: '🇷🇺',
+    repoUrl: 'https://github.com/EdvardBaldanov/config-studio-lang-ru',
+    tags: ['Localization', 'Language', 'Russian'],
   },
   {
     id: 'lang-de',
