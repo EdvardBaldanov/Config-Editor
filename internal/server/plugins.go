@@ -1,4 +1,4 @@
-﻿package server
+package server
 
 import (
 	"encoding/json"
@@ -84,8 +84,9 @@ func (s *Server) handleInspectPluginUpload(w http.ResponseWriter, r *http.Reques
 	}
 	defer file.Close()
 
-	if !strings.HasSuffix(strings.ToLower(header.Filename), ".zip") {
-		jsonError(w, http.StatusBadRequest, "only .zip archives are supported for plugin inspection")
+	filename := strings.ToLower(header.Filename)
+	if !strings.HasSuffix(filename, ".zip") && !strings.HasSuffix(filename, ".cspkg") {
+		jsonError(w, http.StatusBadRequest, "only .zip archives or .cspkg packages are supported for plugin inspection")
 		return
 	}
 

@@ -2347,7 +2347,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="file"
                     ref={zipInputRef}
                     onChange={handleZipUpload}
-                    accept=".zip"
+                    accept=".zip,.cspkg"
                     className="hidden"
                   />
                   <div
