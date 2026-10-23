@@ -1129,8 +1129,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </p>
             </div>
 
-            {/* Custom Language Selector Dropdown */}
-            <div ref={langDropdownRef} className="relative">
+            {/* Custom Language Selector Dropdown - only shown if more than 1 language is available */}
+            {availableLanguages.length > 1 && (
+              <div ref={langDropdownRef} className="relative">
               <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
                 <Globe className="w-4 h-4 text-accent" />
                 <span>{t.language}</span>
@@ -1202,7 +1203,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </>
                 );
               })()}
-            </div>
+              </div>
+            )}
 
             {/* Theme Mode Switch */}
             <div>

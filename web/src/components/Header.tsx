@@ -18,7 +18,7 @@ import {
   Package,
 } from 'lucide-react';
 import { Settings, OpenFile, FileItem, HeaderItemDef } from '../types';
-import { translations, Language } from '../utils/i18n';
+import { translations, Language, getAvailableLanguages, subscribeLanguages, LanguageMeta } from '../utils/i18n';
 import { api } from '../services/api';
 import { formatBytes } from '../utils/color';
 
@@ -62,6 +62,13 @@ export const Header: React.FC<HeaderProps> = ({
   const [fileSearchQuery, setFileSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FileItem[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [availableLanguages, setAvailableLanguages] = useState<LanguageMeta[]>(getAvailableLanguages());
+
+  useEffect(() => {
+    return subscribeLanguages(() => {
+      setAvailableLanguages(getAvailableLanguages());
+    });
+  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -422,17 +429,21 @@ export const Header: React.FC<HeaderProps> = ({
           <Info className="w-4 h-4" />
         </button>
 
-        {/* Language switch */}
-        <button
-          onClick={() =>
-            onChangeLanguage(settings.language === 'ru' ? 'en' : 'ru')
-          }
-          className="px-2 py-1 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center space-x-1"
-          title={t.language}
-        >
-          <Globe className="w-3.5 h-3.5 text-accent" />
-          <span>{settings.language === 'ru' ? 'RU' : 'EN'}</span>
-        </button>
+        {/* Language switch - only visible if more than 1 language is available */}
+        {availableLanguages.length > 1 && (
+          <button
+            onClick={() => {
+              const currentIdx = availableLanguages.findIndex((l) => l.code === settings.language);
+              const nextLang = availableLanguages[(currentIdx + 1) % availableLanguages.length];
+              onChangeLanguage(nextLang.code);
+            }}
+            className="px-2 py-1 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center space-x-1"
+            title={t.language}
+          >
+            <Globe className="w-3.5 h-3.5 text-accent" />
+            <span>{(settings.language || 'RU').toUpperCase()}</span>
+          </button>
+        )}
 
         {/* Theme mode toggle */}
         <button

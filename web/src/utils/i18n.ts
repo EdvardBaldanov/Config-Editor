@@ -587,17 +587,25 @@ const builtInTranslations = {
 const customLanguagePacks: Map<string, LanguagePack> = new Map();
 const registryChangeListeners: Set<() => void> = new Set();
 
+export const BUILD_LOCALE = ((import.meta as any).env?.VITE_APP_LOCALE as string) || 'all';
+
 /**
  * Returns all available languages (built-ins + dynamically registered language packs).
  */
 export function getAvailableLanguages(): LanguageMeta[] {
-  const list: LanguageMeta[] = [
-    { code: 'ru', name: 'Русский', flag: '🇷🇺' },
-    { code: 'en', name: 'English', flag: '🇬🇧' },
-  ];
+  const list: LanguageMeta[] = [];
+
+  if (BUILD_LOCALE === 'ru') {
+    list.push({ code: 'ru', name: 'Русский', flag: '🇷🇺' });
+  } else if (BUILD_LOCALE === 'en') {
+    list.push({ code: 'en', name: 'English', flag: '🇬🇧' });
+  } else {
+    list.push({ code: 'ru', name: 'Русский', flag: '🇷🇺' });
+    list.push({ code: 'en', name: 'English', flag: '🇬🇧' });
+  }
 
   customLanguagePacks.forEach((pack) => {
-    if (pack.code !== 'ru' && pack.code !== 'en') {
+    if (!list.some((item) => item.code === pack.code)) {
       list.push({
         code: pack.code,
         name: pack.name,
