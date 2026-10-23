@@ -36,7 +36,19 @@ interface PermMeta {
 
 function getPermissionMeta(perm: string, lang: string = 'ru'): PermMeta {
   const isEn = lang === 'en';
-  switch (perm.toLowerCase()) {
+  if (!perm || typeof perm !== 'string') {
+    return {
+      label: 'Unknown',
+      desc: isEn ? 'Unknown permission' : 'Неизвестное разрешение',
+      risk: 'low',
+      riskLabel: isEn ? 'Low risk' : 'Низкий риск',
+      icon: <HelpCircle size={16} className="text-gray-400" />,
+    };
+  }
+
+  const normalized = perm.trim().toLowerCase();
+
+  switch (normalized) {
     case 'fs.read':
       return {
         label: isEn ? 'Read project files' : 'Чтение файлов проекта',
@@ -100,8 +112,29 @@ function getPermissionMeta(perm: string, lang: string = 'ru'): PermMeta {
         riskLabel: isEn ? 'Critical risk' : 'Критический риск',
         icon: <Key size={16} className="text-rose-400" />,
       };
-      if (perm.startsWith('service:') || perm.startsWith('service.')) {
-        const svc = perm.replace(/^service[:.]/, '');
+    case 'contextmenu':
+      return {
+        label: isEn ? 'File explorer context menu' : 'Контекстное меню проводника',
+        desc: isEn
+          ? 'Add custom actions to the file explorer right-click menu'
+          : 'Добавление пользовательских действий в контекстное меню проводника файлов',
+        risk: 'safe',
+        riskLabel: isEn ? 'Safe' : 'Безопасно',
+        icon: <Layers size={16} className="text-emerald-400" />,
+      };
+    case 'toolbar':
+      return {
+        label: isEn ? 'Action toolbar integration' : 'Интеграция в панель действий (Toolbar)',
+        desc: isEn
+          ? 'Add 1-click action buttons and dropdowns to the top toolbar'
+          : 'Добавление кнопок быстрых действий в верхнюю панель инструментов',
+        risk: 'safe',
+        riskLabel: isEn ? 'Safe' : 'Безопасно',
+        icon: <Layers size={16} className="text-emerald-400" />,
+      };
+    default:
+      if (normalized.startsWith('service:') || normalized.startsWith('service.')) {
+        const svc = perm.replace(/^service[:.]/i, '');
         return {
           label: isEn ? `Inter-plugin Service: ${svc}` : `Межплагинный сервис: ${svc}`,
           desc: isEn
@@ -112,7 +145,7 @@ function getPermissionMeta(perm: string, lang: string = 'ru'): PermMeta {
           icon: <Layers size={16} className="text-teal-400" />,
         };
       }
-      if (perm.startsWith('ui.')) {
+      if (normalized.startsWith('ui.') || normalized.startsWith('ui:')) {
         return {
           label: isEn ? `Interface: ${perm}` : `Интерфейс: ${perm}`,
           desc: isEn
@@ -147,7 +180,7 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
   const permissions = pending.manifest.permissions || [];
   const hasCritical = permissions.some((p) => {
     const meta = getPermissionMeta(p, language);
-    return meta.risk === 'critical';
+    return meta?.risk === 'critical';
   });
 
   return (
@@ -340,29 +373,29 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
                       className="p-3 bg-[#14141e] border border-gray-800/80 rounded-lg flex items-start justify-between gap-3"
                     >
                       <div className="flex items-start gap-2.5">
-                        <div className="mt-0.5 shrink-0">{meta.icon}</div>
+                        <div className="mt-0.5 shrink-0">{meta?.icon || <HelpCircle size={16} className="text-gray-400" />}</div>
                         <div>
                           <div className="font-medium text-xs text-gray-200">
-                            {meta.label}
+                            {meta?.label || p}
                           </div>
                           <div className="text-[11px] text-gray-400 leading-normal mt-0.5">
-                            {meta.desc}
+                            {meta?.desc || ''}
                           </div>
                         </div>
                       </div>
 
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded font-medium whitespace-nowrap shrink-0 ${
-                          meta.risk === 'critical'
+                          meta?.risk === 'critical'
                             ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                            : meta.risk === 'medium'
+                            : meta?.risk === 'medium'
                             ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            : meta.risk === 'safe'
+                            : meta?.risk === 'safe'
                             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                             : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                         }`}
                       >
-                        {meta.riskLabel}
+                        {meta?.riskLabel || 'Low'}
                       </span>
                     </div>
                   );
