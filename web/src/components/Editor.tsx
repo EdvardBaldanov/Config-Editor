@@ -1,4 +1,4 @@
-﻿import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import MonacoEditor, { OnMount } from '@monaco-editor/react';
 import { OpenFile, Settings, OutlineNode, ToolbarButtonDef, GuardValidationResult } from '../types';
 import { X, FileCode, Hash, ShieldAlert, ShieldCheck } from 'lucide-react';
@@ -142,10 +142,12 @@ export const Editor: React.FC<EditorProps> = ({
       candidates[0].children &&
       candidates[0].children.length > 0
     ) {
-      if (candidates[0].label.startsWith('<html')) {
-        const bodyChild = candidates[0].children.find((c) =>
-          c.label.startsWith('<body')
-        );
+      const rootLabel = candidates[0].label || (candidates[0] as any).name || '';
+      if (rootLabel.startsWith('<html')) {
+        const bodyChild = candidates[0].children.find((c) => {
+          const cLabel = c.label || (c as any).name || '';
+          return cLabel.startsWith('<body');
+        });
         candidates =
           bodyChild && bodyChild.children && bodyChild.children.length > 0
             ? bodyChild.children
@@ -157,9 +159,9 @@ export const Editor: React.FC<EditorProps> = ({
 
     return candidates.slice(0, 35).map((node) => ({
       id: node.id,
-      label: node.label,
+      label: node.label || (node as any).name || '',
       line: node.line,
-      type: node.type,
+      type: node.type || (node as any).kind || 'section',
     }));
   }, [outline]);
 

@@ -207,7 +207,27 @@ class PluginLoader {
         parse: (content: string, filename: string) => OutlineNode[];
       }) => {
         if (provider && provider.language && provider.parse) {
-          this.outlineProviders.set(provider.language.toLowerCase(), provider.parse);
+          const origParse = provider.parse;
+          const safeParse = (content: string, filename: string): OutlineNode[] => {
+            try {
+              const raw = origParse(content, filename) || [];
+              const normalize = (nodes: any[]): OutlineNode[] => {
+                return (nodes || []).map((n, idx) => ({
+                  id: n.id || `node_${idx}_${Math.random().toString(36).substring(2, 7)}`,
+                  label: n.label || n.name || 'node',
+                  type: n.type || n.kind || 'section',
+                  line: typeof n.line === 'number' ? n.line : 1,
+                  value: n.value,
+                  children: n.children && n.children.length > 0 ? normalize(n.children) : undefined,
+                }));
+              };
+              return normalize(raw);
+            } catch (err) {
+              console.error(`[PluginLoader] Error in outline provider for ${provider.language}:`, err);
+              return [];
+            }
+          };
+          this.outlineProviders.set(provider.language.toLowerCase(), safeParse);
           console.log(`[PluginLoader] Registered custom outline provider for ${provider.language}`);
         }
       },

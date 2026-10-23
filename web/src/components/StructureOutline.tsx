@@ -113,7 +113,8 @@ export const StructureOutline: React.FC<StructureOutlineProps> = ({
     const q = searchQuery.toLowerCase();
 
     function searchTraverse(node: OutlineNode) {
-      const matchLabel = node.label.toLowerCase().includes(q);
+      const nodeText = (node.label || (node as any).name || '').toLowerCase();
+      const matchLabel = nodeText.includes(q);
       const matchVal = node.value ? node.value.toLowerCase().includes(q) : false;
 
       if (matchLabel || matchVal) {
@@ -397,17 +398,19 @@ const OutlineItem: React.FC<OutlineItemProps> = ({
   const isCollapsed = collapsedSet.has(node.id);
 
   // Filter check
+  const nodeText = (node.label || (node as any).name || '').toLowerCase();
   const isDirectMatch =
     Boolean(searchFilter) &&
-    (node.label.toLowerCase().includes(searchFilter.toLowerCase()) ||
+    (nodeText.includes(searchFilter.toLowerCase()) ||
       (node.value ? node.value.toLowerCase().includes(searchFilter.toLowerCase()) : false));
 
   const hasMatchingDescendant = useMemo(() => {
     if (!searchFilter.trim() || !hasChildren) return false;
     const q = searchFilter.toLowerCase();
     function check(n: OutlineNode): boolean {
+      const nText = (n.label || (n as any).name || '').toLowerCase();
       if (
-        n.label.toLowerCase().includes(q) ||
+        nText.includes(q) ||
         (n.value && n.value.toLowerCase().includes(q))
       ) {
         return true;
@@ -507,7 +510,7 @@ const OutlineItem: React.FC<OutlineItemProps> = ({
               isDirectMatch ? 'text-accent font-bold underline' : ''
             }`}
           >
-            {node.label}
+            {node.label || (node as any).name || 'Unnamed'}
           </span>
 
           {node.value && (
