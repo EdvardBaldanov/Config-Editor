@@ -1,4 +1,4 @@
-﻿package plugin
+package plugin
 
 import (
 	"strings"
@@ -37,7 +37,8 @@ type Manifest struct {
 type Plugin struct {
 	Manifest
 	Enabled     bool      `json:"enabled"`
-	Dir         string    `json:"dir"`
+	Dir         string    `json:"dir,omitempty"`
+	PackageFile string    `json:"packageFile,omitempty"` // Path to .cspkg single-file package if installed
 	InstalledAt time.Time `json:"installedAt"`
 	Builtin     bool      `json:"builtin"`
 	Dependents  []string  `json:"dependents,omitempty"` // IDs of active plugins that depend on this plugin
@@ -101,6 +102,7 @@ type PendingInstall struct {
 	DependencyIssues []DependencyIssue `json:"dependencyIssues,omitempty"`
 	TempDir          string            `json:"-"`
 	PluginDir        string            `json:"-"`
+	PackageFile      string            `json:"-"` // Original or staged .cspkg file
 	CreatedAt        time.Time         `json:"createdAt"`
 }
 

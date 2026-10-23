@@ -137,8 +137,26 @@ func (m *Manager) listPluginsLocked() ([]Plugin, error) {
 	}
 
 	var plugins []Plugin
+	seen := make(map[string]bool)
+
+	// 1. Scan single-file .cspkg packages
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".cspkg") {
+			pkgPath := filepath.Join(m.pluginsDir, entry.Name())
+			p, err := m.loadPluginFromCSPKG(pkgPath)
+			if err == nil && p != nil {
+				plugins = append(plugins, *p)
+				seen[p.ID] = true
+			}
+		}
+	}
+
+	// 2. Scan directories (for local development or unpacked folders)
 	for _, entry := range entries {
 		if !entry.IsDir() {
+			continue
+		}
+		if seen[entry.Name()] {
 			continue
 		}
 		pDir := filepath.Join(m.pluginsDir, entry.Name())
@@ -183,6 +201,7 @@ func (m *Manager) listPluginsLocked() ([]Plugin, error) {
 			InstalledAt: installedAt,
 			Builtin:     false,
 		})
+		seen[manifest.ID] = true
 	}
 
 	// Calculate active dependents for each plugin
@@ -200,6 +219,95 @@ func (m *Manager) listPluginsLocked() ([]Plugin, error) {
 	}
 
 	return plugins, nil
+}
+
+func (m *Manager) loadPluginFromCSPKG(pkgPath string) (*Plugin, error) {
+	info, err := cspkg.Inspect(pkgPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var manifest Manifest
+	if err := json.Unmarshal(info.Manifest, &manifest); err != nil {
+		return nil, fmt.Errorf("invalid manifest in %s: %w", pkgPath, err)
+	}
+
+	if manifest.ID == "" {
+		base := filepath.Base(pkgPath)
+		manifest.ID = strings.TrimSuffix(base, filepath.Ext(base))
+	}
+
+	enrichManifestLocalesFromCSPKG(&manifest, pkgPath)
+
+	stat, _ := os.Stat(pkgPath)
+	installedAt := time.Now()
+	if stat != nil {
+		installedAt = stat.ModTime()
+	}
+
+	enabled, ok := m.state[manifest.ID]
+	if !ok {
+		enabled = true // default enabled
+	}
+
+	return &Plugin{
+		Manifest:    manifest,
+		Enabled:     enabled,
+		PackageFile: pkgPath,
+		InstalledAt: installedAt,
+		Builtin:     false,
+	}, nil
+}
+
+func enrichManifestLocalesFromCSPKG(manifest *Manifest, pkgPath string) {
+	zr, err := cspkg.OpenZipReader(pkgPath)
+	if err != nil {
+		return
+	}
+
+	if manifest.Locales == nil {
+		manifest.Locales = make(map[string]map[string]string)
+	}
+
+	for _, f := range zr.File {
+		clean := filepath.ToSlash(filepath.Clean(f.Name))
+		if strings.HasPrefix(clean, "locales/") && strings.HasSuffix(strings.ToLower(clean), ".json") {
+			rc, err := f.Open()
+			if err == nil {
+				data, err := io.ReadAll(rc)
+				rc.Close()
+				if err == nil {
+					var dict map[string]string
+					if err := json.Unmarshal(data, &dict); err == nil && len(dict) > 0 {
+						langCode := strings.TrimSuffix(filepath.Base(clean), ".json")
+						if manifest.Locales[langCode] == nil {
+							manifest.Locales[langCode] = dict
+						} else {
+							for k, v := range dict {
+								manifest.Locales[langCode][k] = v
+							}
+						}
+					}
+				}
+			}
+		} else if clean == "localization.json" && manifest.Localization == nil {
+			rc, err := f.Open()
+			if err == nil {
+				data, err := io.ReadAll(rc)
+				rc.Close()
+				if err == nil {
+					var pack LanguagePackDef
+					if err := json.Unmarshal(data, &pack); err == nil && pack.Code != "" {
+						manifest.Localization = &pack
+					}
+				}
+			}
+		}
+	}
+
+	if len(manifest.Locales) == 0 {
+		manifest.Locales = nil
+	}
 }
 
 // GetActiveDependents returns IDs of active plugins that depend on the given plugin ID.
@@ -336,8 +444,11 @@ func (m *Manager) DeletePlugin(id string) error {
 		m.runner.StopAllForPlugin(id)
 	}
 
-	if err := os.RemoveAll(p.Dir); err != nil {
-		return fmt.Errorf("failed to remove plugin directory: %w", err)
+	if p.PackageFile != "" {
+		_ = os.Remove(p.PackageFile)
+	}
+	if p.Dir != "" {
+		_ = os.RemoveAll(p.Dir)
 	}
 
 	delete(m.state, id)
@@ -346,30 +457,13 @@ func (m *Manager) DeletePlugin(id string) error {
 }
 
 func (m *Manager) getPluginLocked(id string) (*Plugin, error) {
-	entries, err := os.ReadDir(m.pluginsDir)
+	plugins, err := m.listPluginsLocked()
 	if err != nil {
 		return nil, err
 	}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		pDir := filepath.Join(m.pluginsDir, entry.Name())
-		manifestPath := filepath.Join(pDir, "plugin.json")
-		data, err := os.ReadFile(manifestPath)
-		if err != nil {
-			continue
-		}
-		var manifest Manifest
-		if err := json.Unmarshal(data, &manifest); err != nil {
-			continue
-		}
-		if manifest.ID == id || entry.Name() == id {
-			enrichManifestLocales(&manifest, pDir)
-			return &Plugin{
-				Manifest: manifest,
-				Dir:      pDir,
-			}, nil
+	for _, p := range plugins {
+		if p.ID == id {
+			return &p, nil
 		}
 	}
 	return nil, fmt.Errorf("plugin %s not found", id)
@@ -389,8 +483,11 @@ func (m *Manager) InspectZip(r io.Reader, size int64, sourceURL string) (*Pendin
 		return nil, err
 	}
 
+	var packageFilePath string
 	// Check if this is a .cspkg binary package format
 	if len(data) >= 4 && data[0] == 'C' && data[1] == 'S' && data[2] == 'P' && data[3] == 'K' {
+		packageFilePath = filepath.Join(tmpDir, "package.cspkg")
+		_ = os.WriteFile(packageFilePath, data, 0644)
 		if _, err := cspkg.UnpackBytes(data, tmpDir); err != nil {
 			_ = os.RemoveAll(tmpDir)
 			return nil, fmt.Errorf("invalid cspkg package: %w", err)
@@ -494,6 +591,7 @@ func (m *Manager) InspectZip(r io.Reader, size int64, sourceURL string) (*Pendin
 		DependencyIssues: m.CheckDependencies(manifest),
 		TempDir:          tmpDir,
 		PluginDir:        pluginDir,
+		PackageFile:      packageFilePath,
 		CreatedAt:        time.Now(),
 	}
 
@@ -555,10 +653,22 @@ func (m *Manager) ConfirmInstall(tempKey string) (*Plugin, error) {
 
 	defer os.RemoveAll(pending.TempDir)
 
+	destPackage := filepath.Join(m.pluginsDir, pending.Manifest.ID+".cspkg")
 	destDir := filepath.Join(m.pluginsDir, pending.Manifest.ID)
+
+	// Clean up any old duplicate directory or package
+	_ = os.Remove(destPackage)
 	_ = os.RemoveAll(destDir)
-	if err := copyDir(pending.PluginDir, destDir); err != nil {
-		return nil, fmt.Errorf("failed to copy plugin files: %w", err)
+
+	if pending.PackageFile != "" {
+		if err := copyFile(pending.PackageFile, destPackage); err != nil {
+			return nil, fmt.Errorf("failed to save plugin package: %w", err)
+		}
+	} else {
+		// Automatically pack into single-file .cspkg!
+		if _, err := cspkg.Pack(pending.PluginDir, destPackage); err != nil {
+			return nil, fmt.Errorf("failed to pack plugin: %w", err)
+		}
 	}
 
 	m.mu.Lock()
@@ -629,21 +739,14 @@ func (m *Manager) ServeFile(w http.ResponseWriter, r *http.Request, pluginID, re
 		return
 	}
 
-	cleanRel := filepath.Clean(strings.TrimPrefix(relPath, "/"))
+	cleanRel := filepath.ToSlash(filepath.Clean(strings.TrimPrefix(relPath, "/")))
 	if strings.HasPrefix(cleanRel, "..") {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
-	target := filepath.Join(p.Dir, cleanRel)
-	info, err := os.Stat(target)
-	if err != nil || info.IsDir() {
-		http.NotFound(w, r)
-		return
-	}
-
 	// Set appropriate Content-Type
-	switch filepath.Ext(target) {
+	switch filepath.Ext(cleanRel) {
 	case ".js", ".mjs":
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	case ".css":
@@ -657,6 +760,24 @@ func (m *Manager) ServeFile(w http.ResponseWriter, r *http.Request, pluginID, re
 	}
 
 	w.Header().Set("Cache-Control", "no-cache")
+
+	if p.PackageFile != "" {
+		data, err := cspkg.ReadFile(p.PackageFile, cleanRel)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(data)
+		return
+	}
+
+	target := filepath.Join(p.Dir, cleanRel)
+	info, err := os.Stat(target)
+	if err != nil || info.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
 	http.ServeFile(w, r, target)
 }
 

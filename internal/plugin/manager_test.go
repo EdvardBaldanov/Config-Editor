@@ -86,10 +86,14 @@ func TestInspectAndConfirmInstall(t *testing.T) {
 		t.Errorf("expected installed plugin ID 'sample-plugin', got %q", installed.ID)
 	}
 
-	// Check if installed on disk
-	expectedFile := filepath.Join(tempDir, "plugins", "sample-plugin", "main.js")
-	if _, err := os.Stat(expectedFile); err != nil {
-		t.Errorf("expected file %s to exist: %v", expectedFile, err)
+	// Check if installed on disk as single-file .cspkg
+	expectedPackage := filepath.Join(tempDir, "plugins", "sample-plugin.cspkg")
+	if _, err := os.Stat(expectedPackage); err != nil {
+		t.Errorf("expected package file %s to exist: %v", expectedPackage, err)
+	}
+	mainJs, err := cspkg.ReadFile(expectedPackage, "main.js")
+	if err != nil || len(mainJs) == 0 {
+		t.Errorf("failed to read main.js from installed cspkg: %v", err)
 	}
 
 	// Check if pending was removed

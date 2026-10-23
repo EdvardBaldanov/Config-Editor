@@ -360,3 +360,62 @@ func IsCSPKG(r io.ReaderAt) bool {
 	}
 	return magic == MagicBytes
 }
+
+// OpenZipReader returns an archive/zip.Reader pointing to the payload inside the .cspkg file
+func OpenZipReader(cspkgPath string) (*zip.Reader, error) {
+	data, err := os.ReadFile(cspkgPath)
+	if err != nil {
+		return nil, err
+	}
+	return OpenZipReaderBytes(data)
+}
+
+// OpenZipReaderBytes parses raw .cspkg bytes and returns a zip.Reader for the payload
+func OpenZipReaderBytes(data []byte) (*zip.Reader, error) {
+	headerSize := binary.Size(Header{})
+	if len(data) < headerSize {
+		return nil, errors.New("file too small to be a valid cspkg")
+	}
+
+	var header Header
+	buf := bytes.NewReader(data[:headerSize])
+	if err := binary.Read(buf, binary.LittleEndian, &header); err != nil {
+		return nil, err
+	}
+
+	if header.Magic != MagicBytes {
+		return nil, ErrInvalidMagic
+	}
+
+	manifestEnd := headerSize + int(header.ManifestSize)
+	payloadEnd := manifestEnd + int(header.PayloadSize)
+	if payloadEnd > len(data) {
+		return nil, errors.New("corrupt cspkg: payload bounds exceed file length")
+	}
+
+	payloadBytes := data[manifestEnd:payloadEnd]
+	return zip.NewReader(bytes.NewReader(payloadBytes), int64(len(payloadBytes)))
+}
+
+// ReadFile reads and returns the contents of a specific relative path from inside a .cspkg package
+func ReadFile(cspkgPath string, relPath string) ([]byte, error) {
+	zr, err := OpenZipReader(cspkgPath)
+	if err != nil {
+		return nil, err
+	}
+
+	cleanRel := filepath.ToSlash(filepath.Clean(strings.TrimPrefix(relPath, "/")))
+
+	for _, f := range zr.File {
+		if filepath.ToSlash(filepath.Clean(f.Name)) == cleanRel {
+			rc, err := f.Open()
+			if err != nil {
+				return nil, err
+			}
+			defer rc.Close()
+			return io.ReadAll(rc)
+		}
+	}
+
+	return nil, os.ErrNotExist
+}
