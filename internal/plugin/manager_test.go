@@ -3,6 +3,8 @@ package plugin
 import (
 	"archive/zip"
 	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -453,5 +455,64 @@ func TestInspectAndInstallCSPKG(t *testing.T) {
 	}
 	if p.Manifest.Name != "Binary Package Test" {
 		t.Errorf("Manifest name mismatch: %s", p.Manifest.Name)
+	}
+}
+
+func TestInspectURLWithCSPKGRelease(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "cs-test-url-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	srcDir := filepath.Join(tempDir, "src")
+	_ = os.MkdirAll(srcDir, 0755)
+	_ = os.WriteFile(filepath.Join(srcDir, "plugin.json"), []byte(`{
+		"id": "url-cspkg-test",
+		"name": "URL CSPKG Test",
+		"version": "1.0.0",
+		"entry": "main.js"
+	}`), 0644)
+	_ = os.WriteFile(filepath.Join(srcDir, "main.js"), []byte("console.log(1)"), 0644)
+
+	cspkgPath := filepath.Join(tempDir, "url-cspkg-test.cspkg")
+	if _, err := cspkg.Pack(srcDir, cspkgPath); err != nil {
+		t.Fatalf("Pack failed: %v", err)
+	}
+
+	pkgBytes, err := os.ReadFile(cspkgPath)
+	if err != nil {
+		t.Fatalf("ReadFile failed: %v", err)
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		_, _ = w.Write(pkgBytes)
+	}))
+	defer ts.Close()
+
+	mgr, err := NewManager(filepath.Join(tempDir, "plugins"), nil)
+	if err != nil {
+		t.Fatalf("NewManager failed: %v", err)
+	}
+
+	// 1. Test direct .cspkg URL
+	pending, err := mgr.InspectURL(ts.URL + "/releases/download/v1.0.0/url-cspkg-test.cspkg")
+	if err != nil {
+		t.Fatalf("InspectURL failed for .cspkg URL: %v", err)
+	}
+
+	if pending.Manifest.ID != "url-cspkg-test" {
+		t.Errorf("expected ID 'url-cspkg-test', got %s", pending.Manifest.ID)
+	}
+
+	// 2. Confirm install
+	installed, err := mgr.ConfirmInstall(pending.TempKey)
+	if err != nil {
+		t.Fatalf("ConfirmInstall failed: %v", err)
+	}
+
+	if installed.ID != "url-cspkg-test" {
+		t.Errorf("expected installed ID 'url-cspkg-test', got %s", installed.ID)
 	}
 }

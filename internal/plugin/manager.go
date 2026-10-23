@@ -603,7 +603,7 @@ func (m *Manager) InspectZip(r io.Reader, size int64, sourceURL string) (*Pendin
 	return pending, nil
 }
 
-// InspectURL downloads a zip or GitHub repo and inspects its manifest.
+// InspectURL downloads a zip, .cspkg package, or GitHub repo and inspects its manifest.
 func (m *Manager) InspectURL(rawURL string) (*PendingInstall, error) {
 	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
@@ -611,7 +611,16 @@ func (m *Manager) InspectURL(rawURL string) (*PendingInstall, error) {
 	}
 
 	downloadURL := rawURL
-	if strings.Contains(downloadURL, "github.com/") && !strings.HasSuffix(downloadURL, ".zip") {
+	lowerURL := strings.ToLower(downloadURL)
+
+	// Only transform repository root URLs (e.g. https://github.com/owner/repo)
+	// into zip archive URLs. If the URL is already pointing to a .cspkg, .zip,
+	// release asset, or raw file, do NOT alter it!
+	isDirectArchive := strings.HasSuffix(lowerURL, ".zip") || strings.HasSuffix(lowerURL, ".cspkg")
+	isReleaseAsset := strings.Contains(lowerURL, "/releases/download/") || strings.Contains(lowerURL, "/archive/")
+	isRawContent := strings.Contains(lowerURL, "raw.githubusercontent.com")
+
+	if strings.Contains(downloadURL, "github.com/") && !isDirectArchive && !isReleaseAsset && !isRawContent {
 		clean := strings.TrimSuffix(downloadURL, ".git")
 		clean = strings.TrimSuffix(clean, "/")
 		downloadURL = clean + "/archive/refs/heads/main.zip"
