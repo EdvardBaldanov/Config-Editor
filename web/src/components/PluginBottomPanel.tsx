@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, ChevronUp, ChevronDown, Terminal } from 'lucide-react';
 import { BottomPanelDef } from '../services/pluginLoader';
 
@@ -13,7 +13,11 @@ export const PluginBottomPanel: React.FC<PluginBottomPanelProps> = ({ panel, onC
 
   useEffect(() => {
     if (containerRef.current) {
-      panel.render(containerRef.current);
+      try {
+        panel.render(containerRef.current);
+      } catch (err) {
+        console.error('[PluginBottomPanel] Error rendering panel:', panel.id, err);
+      }
     }
   }, [panel]);
 

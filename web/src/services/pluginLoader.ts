@@ -1,4 +1,4 @@
-﻿import { api, setRemoteEndpoint } from './api';
+import { api, setRemoteEndpoint } from './api';
 import {
   PluginItem,
   OpenFile,
@@ -324,9 +324,11 @@ class PluginLoader {
           return getPluginT(pluginId, this.currentLanguage)(key, fallback, params);
         },
         scoped: (pluginId: string) => {
-          return {
-            t: (key: string, fallback?: string, params?: Record<string, any>) =>
-              getPluginT(pluginId, this.currentLanguage)(key, fallback, params),
+          const fn = (key: string, fallback?: string, params?: Record<string, any>) =>
+            getPluginT(pluginId, this.currentLanguage)(key, fallback, params);
+
+          return Object.assign(fn, {
+            t: fn,
             getLanguage: () => this.currentLanguage,
             onLanguageChange: (cb: (lang: string) => void) => {
               this.languageChangeCallbacks.add(cb);
@@ -337,7 +339,7 @@ class PluginLoader {
               }
               return () => this.languageChangeCallbacks.delete(cb);
             },
-          };
+          });
         },
       },
 

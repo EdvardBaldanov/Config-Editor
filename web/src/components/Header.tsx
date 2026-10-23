@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Save,
   Download,
@@ -506,7 +506,11 @@ const PluginHeaderItemMount: React.FC<{ item: HeaderItemDef }> = ({ item }) => {
 
   useEffect(() => {
     if (mountRef.current) {
-      item.render(mountRef.current);
+      try {
+        item.render(mountRef.current);
+      } catch (err) {
+        console.error('[PluginHeader] Error rendering header item:', item.id, err);
+      }
     }
   }, [item]);
 

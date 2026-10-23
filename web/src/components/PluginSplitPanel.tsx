@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X, ExternalLink, Maximize2, Minimize2 } from 'lucide-react';
 import { SplitPanelDef } from '../types';
 
@@ -13,7 +13,11 @@ export const PluginSplitPanel: React.FC<PluginSplitPanelProps> = ({ panel, onClo
 
   useEffect(() => {
     if (containerRef.current) {
-      panel.render(containerRef.current);
+      try {
+        panel.render(containerRef.current);
+      } catch (err) {
+        console.error('[PluginSplitPanel] Error rendering split panel:', panel.id, err);
+      }
     }
   }, [panel]);
 

@@ -14,9 +14,14 @@
     servers = [];
   }
 
-  // Get scoped translation helper
-  const t = window.ConfigStudio.i18n && window.ConfigStudio.i18n.scoped
+  // Get scoped translation helper safely
+  const i18nHelper = window.ConfigStudio.i18n && window.ConfigStudio.i18n.scoped
     ? window.ConfigStudio.i18n.scoped(pluginId)
+    : null;
+  const t = typeof i18nHelper === 'function'
+    ? i18nHelper
+    : (i18nHelper && typeof i18nHelper.t === 'function')
+    ? i18nHelper.t
     : (key, fallback, params) => {
         let res = fallback || key;
         if (params) {

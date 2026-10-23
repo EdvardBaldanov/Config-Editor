@@ -58,11 +58,15 @@ if ($Target -eq "all" -or $Target -eq "en") {
 Write-Host "`n[4/4] Deploying to target desktop distribution paths..." -ForegroundColor Yellow
 foreach ($dest in $DistDirs) {
     if (Test-Path $dest) {
-        Copy-Item -Path (Join-Path $BinDir "config-studio-windows-amd64.exe") -Destination $dest -Force
-        Copy-Item -Path (Join-Path $BinDir "config-studio-ru-windows-amd64.exe") -Destination $dest -Force
-        Copy-Item -Path (Join-Path $BinDir "config-studio-en-windows-amd64.exe") -Destination $dest -Force
-        Copy-Item -Path (Join-Path $BinDir "cspkg.exe") -Destination $dest -Force
-        Write-Host "[OK] Deployed binaries to: $dest" -ForegroundColor Green
+        try {
+            Copy-Item -Path (Join-Path $BinDir "config-studio-windows-amd64.exe") -Destination $dest -Force -ErrorAction Stop
+            Copy-Item -Path (Join-Path $BinDir "config-studio-ru-windows-amd64.exe") -Destination $dest -Force -ErrorAction Stop
+            Copy-Item -Path (Join-Path $BinDir "config-studio-en-windows-amd64.exe") -Destination $dest -Force -ErrorAction Stop
+            Copy-Item -Path (Join-Path $BinDir "cspkg.exe") -Destination $dest -Force -ErrorAction Stop
+            Write-Host "[OK] Deployed binaries to: $dest" -ForegroundColor Green
+        } catch {
+            Write-Host "[WARN] Could not deploy to $dest (file is in use): $($_.Exception.Message)" -ForegroundColor Yellow
+        }
     }
 }
 
