@@ -178,7 +178,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({
   };
 
   return (
-    <div className="p-6 space-y-6 overflow-y-auto flex-1">
+    <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
       {/* Host Command Execution Security ("I know what I'm doing" mode) */}
       <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
         <div className="flex items-center justify-between">

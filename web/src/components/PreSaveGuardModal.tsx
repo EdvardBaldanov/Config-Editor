@@ -50,7 +50,7 @@ export const PreSaveGuardModal: React.FC<PreSaveGuardModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-4 max-h-[calc(85vh-140px)] overflow-y-auto">
+        <div className="p-6 space-y-4 max-h-[calc(85vh-140px)] overflow-y-auto custom-scrollbar">
           {/* File & Warning info */}
           <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-4 space-y-2">
             <div className="flex items-center justify-between text-xs">

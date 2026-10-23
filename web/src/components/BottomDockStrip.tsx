@@ -245,7 +245,7 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
           </div>
 
           {/* Panel Body Content */}
-          <div className="flex-1 overflow-auto relative p-2 font-mono text-xs">
+          <div className="flex-1 overflow-auto relative p-2 font-mono text-xs custom-scrollbar">
             {/* 1. Built-in: Problems Tab */}
             {activePanelId === 'problems' && (
               <div className="space-y-1">

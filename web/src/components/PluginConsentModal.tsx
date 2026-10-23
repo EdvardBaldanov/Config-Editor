@@ -235,7 +235,7 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-5 text-sm">
+        <div className="p-6 overflow-y-auto space-y-5 text-sm custom-scrollbar">
           {/* Plugin Identification Card */}
           <div className="p-4 bg-[#14141e] border border-gray-800 rounded-lg space-y-2">
             <div className="flex items-start justify-between gap-3">

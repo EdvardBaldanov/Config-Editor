@@ -160,7 +160,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   };
 
   return (
-    <div className="p-6 space-y-6 overflow-y-auto flex-1">
+    <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
       {/* Card 1: 1-Click Profile Portability */}
       <div className="p-5 rounded-2xl bg-gray-100/60 dark:bg-black/20 border border-base-border space-y-4">
         <div className="flex items-center space-x-3">

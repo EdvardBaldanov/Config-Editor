@@ -271,7 +271,7 @@ export const FilePropertiesModal: React.FC<FilePropertiesModalProps> = ({
 
         {/* Tab 2: Revision History + Diff Preview */}
         {activeTab === 'history' && (
-          <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
             {file.revisions.length === 0 ? (
               <div className="text-center text-xs text-gray-500 py-12">
                 <Layers className="w-10 h-10 mx-auto mb-2 opacity-30 text-accent" />
@@ -363,7 +363,7 @@ export const FilePropertiesModal: React.FC<FilePropertiesModalProps> = ({
                             <span>Разница с текущим содержимым:</span>
                             <span className="text-accent">Предпросмотр</span>
                           </div>
-                          <div className="p-2.5 rounded-xl bg-black/40 font-mono text-[11px] max-h-48 overflow-y-auto leading-relaxed border border-white/5 space-y-0.5">
+                          <div className="p-2.5 rounded-xl bg-black/40 font-mono text-[11px] max-h-48 overflow-y-auto custom-scrollbar leading-relaxed border border-white/5 space-y-0.5">
                             {renderDiffLines(rev.content, file.content).map((diffRow, dIdx) => (
                               <div
                                 key={dIdx}

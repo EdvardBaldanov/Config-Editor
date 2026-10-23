@@ -62,7 +62,7 @@ export const SecurityTab: React.FC<SecurityTabProps> = ({
   };
 
   return (
-    <div className="p-6 space-y-6 overflow-y-auto flex-1">
+    <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
       {/* Direct Authentication */}
       <div className="p-4 rounded-2xl bg-gray-100/60 dark:bg-black/20 border border-base-border space-y-3">
         <div className="flex items-center justify-between">

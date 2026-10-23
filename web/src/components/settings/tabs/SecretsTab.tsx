@@ -217,7 +217,7 @@ export const SecretsTab: React.FC<SecretsTabProps> = ({
   };
 
   return (
-    <div className="p-6 space-y-6 overflow-y-auto flex-1">
+    <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
       {/* Header info banner */}
       <div className="p-4 rounded-2xl bg-gray-100/60 dark:bg-black/20 border border-base-border space-y-3">
         <div className="flex items-start justify-between gap-4">

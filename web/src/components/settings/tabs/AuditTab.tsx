@@ -80,7 +80,7 @@ export const AuditTab: React.FC<AuditTabProps> = ({ t }) => {
   };
 
   return (
-    <div className="p-6 space-y-4 overflow-y-auto flex-1">
+    <div className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
       {/* Header Info */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-base-border">
         <div>
@@ -213,7 +213,7 @@ export const AuditTab: React.FC<AuditTabProps> = ({ t }) => {
         </div>
 
         {/* Category Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto text-xs py-0.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto text-xs py-0.5 custom-scrollbar">
           <span className="text-[11px] text-gray-500 dark:text-gray-400 mr-1">{t.auditCategoryAll}:</span>
           <button
             type="button"
@@ -387,7 +387,7 @@ export const AuditTab: React.FC<AuditTabProps> = ({ t }) => {
                     </button>
 
                     {isExpanded && (
-                      <pre className="mt-1.5 p-2 rounded-lg bg-black/40 border border-base-border text-[10px] font-mono text-gray-300 overflow-x-auto max-h-36">
+                      <pre className="mt-1.5 p-2 rounded-lg bg-black/40 border border-base-border text-[10px] font-mono text-gray-300 overflow-x-auto max-h-36 custom-scrollbar">
                         {JSON.stringify(evt.details, null, 2)}
                       </pre>
                     )}

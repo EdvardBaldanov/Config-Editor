@@ -85,7 +85,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
   };
 
   return (
-    <div className="p-6 space-y-6 overflow-y-auto flex-1">
+    <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
       {/* App Title */}
       <div>
         <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
@@ -134,7 +134,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
           </button>
 
           {isLangDropdownOpen && (
-            <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white dark:bg-[#161b22] border border-base-border rounded-xl shadow-2xl p-1 space-y-0.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+            <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white dark:bg-[#161b22] border border-base-border rounded-xl shadow-2xl p-1 space-y-0.5 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100">
               {availableLanguages.map((l) => {
                 const isSelected = language === l.code;
                 return (

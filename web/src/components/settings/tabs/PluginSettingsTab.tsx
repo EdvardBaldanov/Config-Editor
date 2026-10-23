@@ -152,7 +152,7 @@ export const PluginSettingsTab: React.FC<PluginSettingsTabProps> = ({
         </div>
 
         {/* Plugin Stack with smooth scroll */}
-        <div className="p-2 space-y-1 overflow-y-auto flex-1">
+        <div className="p-2 space-y-1 overflow-y-auto flex-1 custom-scrollbar">
           {isLoading && plugins.length === 0 ? (
             <div className="py-8 text-center text-xs text-gray-400 flex items-center justify-center space-x-2">
               <RefreshCw size={13} className="animate-spin text-accent" />
@@ -235,7 +235,7 @@ export const PluginSettingsTab: React.FC<PluginSettingsTabProps> = ({
       </div>
 
       {/* Right Column: Settings Content for Selected Plugin */}
-      <div className="flex-1 flex flex-col overflow-y-auto bg-base-surface">
+      <div className="flex-1 flex flex-col overflow-y-auto bg-base-surface custom-scrollbar">
         {!selectedPlugin ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-400 space-y-2">
             <Package size={36} className="text-gray-500 opacity-50 mb-2" />

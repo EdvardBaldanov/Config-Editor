@@ -27,45 +27,97 @@ html.dark body {
   color: #e6edf3;
 }
 
-/* Custom Sleek Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Universal Sleek Scrollbar (Quick Jump & Modern UI style) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(150, 150, 150, 0.25) transparent;
 }
+
+*::-webkit-scrollbar,
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track,
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+*::-webkit-scrollbar-thumb,
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(150, 150, 150, 0.25);
+  border-radius: 9999px;
+  transition: background-color 0.15s ease;
 }
 
+*::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent, #00d2b4);
+}
+
+*::-webkit-scrollbar-corner,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+html:not(.dark) * {
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+html:not(.dark) *::-webkit-scrollbar-thumb,
 html:not(.dark) ::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.2);
 }
+
+html:not(.dark) *::-webkit-scrollbar-thumb:hover,
 html:not(.dark) ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--color-accent, #00d2b4);
 }
 
-/* Horizontal tags bar scroll styling */
+/* Specific class for custom sleek scrollbar containers (Settings, Quick Jump, Panels) */
+.custom-scrollbar,
 .horizontal-tags-scroll {
   scrollbar-width: thin;
+  scrollbar-color: rgba(150, 150, 150, 0.25) transparent;
 }
+
+.custom-scrollbar::-webkit-scrollbar,
 .horizontal-tags-scroll::-webkit-scrollbar {
+  width: 5px;
   height: 5px;
 }
+
+.custom-scrollbar::-webkit-scrollbar-track,
 .horizontal-tags-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+
+.custom-scrollbar::-webkit-scrollbar-thumb,
 .horizontal-tags-scroll::-webkit-scrollbar-thumb {
   background: rgba(150, 150, 150, 0.25);
   border-radius: 9999px;
+  transition: background-color 0.15s ease;
 }
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
 .horizontal-tags-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--color-accent);
+  background: var(--color-accent, #00d2b4);
+}
+
+html:not(.dark) .custom-scrollbar,
+html:not(.dark) .horizontal-tags-scroll {
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+html:not(.dark) .custom-scrollbar::-webkit-scrollbar-thumb,
+html:not(.dark) .horizontal-tags-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+html:not(.dark) .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+html:not(.dark) .horizontal-tags-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent, #00d2b4);
 }
 
 /* Tree line styles for Outline */

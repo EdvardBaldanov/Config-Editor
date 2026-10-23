@@ -152,7 +152,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-base-surface border border-base-border rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+      <div
+        className="bg-base-surface border border-base-border rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
+        style={{ ['--color-accent' as any]: accentColor }}
+      >
         {/* Header */}
         <div className="px-6 py-4 border-b border-base-border flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
@@ -173,7 +176,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Tab Navigation Strip */}
-        <div className="flex px-6 border-b border-base-border bg-gray-50/50 dark:bg-black/10 overflow-x-auto gap-1">
+        <div className="flex px-6 border-b border-base-border bg-gray-50/50 dark:bg-black/10 overflow-x-auto gap-1 custom-scrollbar">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isSelected = activeTab === item.id;

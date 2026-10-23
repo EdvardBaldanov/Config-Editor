@@ -82,7 +82,7 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-4 max-h-[calc(80vh-140px)] overflow-y-auto">
+        <div className="p-6 space-y-4 max-h-[calc(80vh-140px)] overflow-y-auto custom-scrollbar">
           {/* Safe Note */}
           <div className="p-3 bg-teal-500/10 border border-teal-500/30 rounded-2xl flex items-start gap-2.5 text-xs text-teal-400">
             <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-teal-400" />
@@ -178,7 +178,7 @@ export const ProfileImportModal: React.FC<ProfileImportModalProps> = ({
             </div>
 
             {autoInstallPlugins && pluginsStatus.length > 0 && (
-              <div className="pl-6 pt-1 space-y-1.5 max-h-40 overflow-y-auto">
+              <div className="pl-6 pt-1 space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar">
                 {pluginsStatus.map((p) => {
                   let badge = (
                     <span className="text-[10px] text-gray-500 bg-gray-200 dark:bg-gray-800 px-1.5 py-0.5 rounded font-mono">

@@ -338,7 +338,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
       {/* Files List */}
       <div
-        className="flex-1 overflow-y-auto p-1.5 space-y-0.5"
+        className="flex-1 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar"
         onContextMenu={(e) => {
           e.preventDefault();
           setContextMenuState({

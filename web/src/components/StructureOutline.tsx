@@ -320,7 +320,7 @@ export const StructureOutline: React.FC<StructureOutlineProps> = ({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
         {error ? (
           <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-600 dark:text-red-300 flex items-start space-x-2.5">
             <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
