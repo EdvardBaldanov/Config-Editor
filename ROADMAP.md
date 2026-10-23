@@ -387,23 +387,24 @@
   - [x] Автономная локализация плагинов (`locales/*.json` и `locales` в `plugin.json`).
   - [x] Плагины полной локализации интерфейса (UI Language Packs: `localization.json`).
 
-### 📦 ВЕРСИЯ 1.9.5: Бинарный формат библиотеки плагинов (.cspkg / Binary Package) — В планах
-- [ ] **Бинарный контейнер по аналогии с MRS (Mihomo / Clash.Meta)**:
-  - [ ] Компиляция текстовых файлов (`plugin.json`, `main.js`, `locales/*.json`, ассеты) в единый компактный бинарный файл с расширением `.cspkg`.
-  - [ ] Нулевые внешние зависимости: реализация строго на стандартной библиотеке Go (`encoding/binary`, `compress/flate`, `crypto/sha256`).
-  - [ ] Спецификация структуры: сигнатура Magic Bytes `CSP\x01`, SHA-256 хеш содержимого, таблица секций TOC со смещениями байтов (Offsets), сжатые Deflate-блоки данных.
-  - [ ] Zero-Disk / In-Memory монтирование: считывание плагина прямо в память ядра без распаковки во временные папки на диске (`tmpDir`).
-  - [ ] Сохранение режима разработки (Dev Mode): поддержка распакованных папок и ZIP-архивов в режиме повышенных привилегий для hot-reload и быстрой отладки.
-  - [ ] Инструмент сборки (Compiler/Packer): CLI-команда `config-studio pack <dir> -o <name>.cspkg` и 1-Click экспорт из интерфейса настроек.
-- [ ] **Синхронизация документации плагинов ([config-studio-plugin-docs](https://github.com/EdvardBaldanov/config-studio-plugin-docs))**:
-  - [ ] Обновление спецификации манифеста `plugin.json` (права `permissions`, зависимости `dependencies` с SemVer).
-  - [ ] Документирование новых API-мостов:
+### 📦 ВЕРСИЯ 1.9.5: Бинарный формат библиотеки плагинов (.cspkg / Binary Package) — (ЗАВЕРШЕНА НА 100%)
+- [x] **Бинарный контейнер по аналогии с MRS (Mihomo / Clash.Meta)**:
+  - [x] Компиляция текстовых файлов (`plugin.json`, `main.js`, `locales/*.json`, ассеты) в единый компактный бинарный файл с расширением `.cspkg`.
+  - [x] Нулевые внешние зависимости: реализация строго на стандартной библиотеке Go (`encoding/binary`, `archive/zip`, `crypto/sha256`).
+  - [x] Спецификация структуры: сигнатура Magic Bytes `CSPK\x01`, 32-байтный SHA-256 хеш содержимого, потоковое чтение на лету прямо из памяти (`cspkg.ReadFile`).
+  - [x] Zero-Disk / In-Memory монтирование: считывание плагина прямо в память ядра без распаковки во временные папки на диске (`data/plugins/<id>.cspkg`).
+  - [x] Сохранение режима разработки (Dev Mode): поддержка распакованных папок и ZIP-архивов для hot-reload и быстрой отладки.
+  - [x] Инструмент сборки (Compiler/Packer): автономная CLI-утилита `cmd/cspkg` (`pack`, `inspect`, `unpack`, `validate`) с кросс-компиляцией под Windows, Linux и macOS.
+- [x] **Синхронизация документации плагинов ([config-studio-plugin-docs](https://github.com/EdvardBaldanov/config-studio-plugin-docs))**:
+  - [x] Обновление спецификации манифеста `plugin.json` (права `permissions`, зависимости `dependencies` с SemVer).
+  - [x] Документирование новых API-мостов:
     - Контекстное меню (`window.ConfigStudio.registerContextMenu`, группы, шорткаты, `fileMatches`).
     - Шина межплагинных сервисов (`registerService` / `getService` / Security Guard).
     - Безопасное хранилище секретов (`secrets.get`, `secrets.listShared`, `secrets.list`).
     - Локализация плагинов (`locales/*.json` и scoped `getPluginT`).
-  - [ ] Спецификация нового бинарного формата `.cspkg` и инструкция по упаковке/сборке.
-  - [ ] Обновление TypeScript SDK типингов (`ConfigStudioAPI`, `ContextMenuItem`, `SecretItem`).
+  - [x] Спецификация бинарного формата `.cspkg`, инструкция по сборке и публикация Release v1.0.0 с готовыми бинарниками компилятора.
+  - [x] Автоматизация сборки плагинов через единый GitHub Actions workflow во всех репозиториях.
+  - [x] Обновление TypeScript SDK типингов (`ConfigStudioAPI`, `ContextMenuItem`, `SecretItem`).
 
 ### 🖧 ФАЗА 2A: Системное администрирование и инфраструктура (Sysadmin & Fleet)
 - [ ] **config-studio-ssh**:
