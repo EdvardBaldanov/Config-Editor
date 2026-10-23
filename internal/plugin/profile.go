@@ -28,12 +28,13 @@ type ProfilePlugin struct {
 }
 
 type StudioProfile struct {
-	Schema     string             `json:"$schema,omitempty"`
-	Version    string             `json:"version"`
-	ExportedAt time.Time          `json:"exportedAt"`
-	App        ProfileAppSettings `json:"app"`
-	Sources    []Source           `json:"sources"`
-	Plugins    []ProfilePlugin    `json:"plugins"`
+	Schema         string                    `json:"$schema,omitempty"`
+	Version        string                    `json:"version"`
+	ExportedAt     time.Time                 `json:"exportedAt"`
+	App            ProfileAppSettings        `json:"app"`
+	Sources        []Source                  `json:"sources"`
+	Plugins        []ProfilePlugin           `json:"plugins"`
+	PluginSettings map[string]map[string]any `json:"pluginSettings,omitempty"`
 }
 
 type PluginStatusDiff struct {
@@ -77,6 +78,7 @@ func GenerateProfile(
 	appSettings ProfileAppSettings,
 	sources []Source,
 	installedPlugins []Plugin,
+	pluginSettings map[string]map[string]any,
 ) StudioProfile {
 	profilePlugins := make([]ProfilePlugin, 0, len(installedPlugins))
 	for _, p := range installedPlugins {
@@ -111,12 +113,13 @@ func GenerateProfile(
 	}
 
 	return StudioProfile{
-		Schema:     "https://config-studio.io/schemas/profile-v1.json",
-		Version:    "1.0",
-		ExportedAt: time.Now().UTC(),
-		App:        appSettings,
-		Sources:    cleanSources,
-		Plugins:    profilePlugins,
+		Schema:         "https://config-studio.io/schemas/profile-v1.json",
+		Version:        "1.0",
+		ExportedAt:     time.Now().UTC(),
+		App:            appSettings,
+		Sources:        cleanSources,
+		Plugins:        profilePlugins,
+		PluginSettings: pluginSettings,
 	}
 }
 

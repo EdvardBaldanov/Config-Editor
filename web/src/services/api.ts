@@ -282,6 +282,25 @@ export const api = {
     return res.json();
   },
 
+  async getPluginSettings(id: string): Promise<Record<string, any>> {
+    const res = await webFetch(`/api/plugins/${encodeURIComponent(id)}/settings`);
+    if (!res.ok) return {};
+    const data = await res.json().catch(() => ({}));
+    return data.settings || {};
+  },
+
+  async savePluginSettings(id: string, settings: Record<string, any>): Promise<void> {
+    const res = await webFetch(`/api/plugins/${encodeURIComponent(id)}/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to save plugin settings');
+    }
+  },
+
   async inspectPluginZip(file: File): Promise<PendingInstall> {
     const formData = new FormData();
     formData.append('plugin', file);

@@ -26,6 +26,15 @@ export interface LanguagePackDef {
   translations?: Record<string, string>;
 }
 
+export interface PluginSettingField {
+  id: string;
+  label: string;
+  type: 'boolean' | 'string' | 'number' | 'select';
+  default?: any;
+  options?: Array<{ label: string; value: any }> | string[];
+  description?: string;
+}
+
 export interface PluginManifest {
   id: string;
   name: string;
@@ -42,6 +51,7 @@ export interface PluginManifest {
   providesServices?: string[];
   locales?: Record<string, Record<string, string>>;
   localization?: LanguagePackDef;
+  settings?: PluginSettingField[];
 }
 
 export interface PluginItem extends PluginManifest {
@@ -263,6 +273,7 @@ export interface StudioProfile {
     enabled: boolean;
     sourceUrl?: string;
   }>;
+  pluginSettings?: Record<string, Record<string, any>>;
 }
 
 export interface ProfilePreview {

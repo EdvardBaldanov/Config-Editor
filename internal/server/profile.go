@@ -28,7 +28,8 @@ func (s *Server) handleExportProfile(w http.ResponseWriter, r *http.Request) {
 		CriticalPatterns:      appSettings.CriticalPatterns,
 	}
 
-	prof := plugin.GenerateProfile(profileApp, sources, installed)
+	pluginSettings := s.plugins.GetAllPluginSettings()
+	prof := plugin.GenerateProfile(profileApp, sources, installed, pluginSettings)
 
 	data, err := json.MarshalIndent(prof, "", "  ")
 	if err != nil {
@@ -216,6 +217,13 @@ func (s *Server) handleImportProfile(w http.ResponseWriter, r *http.Request) {
 			} else {
 				result.Errors = append(result.Errors, fmt.Sprintf("no valid download URL found for plugin %s", p.ID))
 			}
+		}
+	}
+
+	// 4. Import plugin settings if present in profile
+	if req.Profile.PluginSettings != nil {
+		for pluginID, pSettings := range req.Profile.PluginSettings {
+			_ = s.plugins.SavePluginSettings(pluginID, pSettings)
 		}
 	}
 

@@ -108,7 +108,7 @@ func TestProfileExportPreview(t *testing.T) {
 		},
 	}
 
-	prof := GenerateProfile(appSettings, sources, plugins)
+	prof := GenerateProfile(appSettings, sources, plugins, nil)
 	if prof.App.AppTitle != "My Custom Studio" {
 		t.Errorf("unexpected AppTitle: %s", prof.App.AppTitle)
 	}

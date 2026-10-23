@@ -1,0 +1,378 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Type,
+  Globe,
+  Sun,
+  Moon,
+  Image as ImageIcon,
+  Upload,
+  Check,
+  ChevronDown,
+} from 'lucide-react';
+import { Settings } from '../../../types';
+import { LanguageMeta } from '../../../utils/i18n';
+import { PRESET_BASE_COLORS, PRESET_ACCENT_COLORS } from '../types';
+
+interface GeneralTabProps {
+  settings: Settings;
+  title: string;
+  setTitle: (v: string) => void;
+  baseColor: string;
+  setBaseColor: (v: string) => void;
+  accentColor: string;
+  setAccentColor: (v: string) => void;
+  themeMode: 'light' | 'dark';
+  setThemeMode: (v: 'light' | 'dark') => void;
+  language: string;
+  setLanguage: (v: string) => void;
+  bottomDockMode: 'auto' | 'always' | 'hidden';
+  setBottomDockMode: (v: 'auto' | 'always' | 'hidden') => void;
+  onUploadIcon: (file: File) => Promise<void>;
+  availableLanguages: LanguageMeta[];
+  t: any;
+}
+
+export const GeneralTab: React.FC<GeneralTabProps> = ({
+  settings,
+  title,
+  setTitle,
+  baseColor,
+  setBaseColor,
+  accentColor,
+  setAccentColor,
+  themeMode,
+  setThemeMode,
+  language,
+  setLanguage,
+  bottomDockMode,
+  setBottomDockMode,
+  onUploadIcon,
+  availableLanguages,
+  t,
+}) => {
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+  const [iconPreview, setIconPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const langDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(e.target as Node)) {
+        setIsLangDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        setIconPreview(re.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+      onUploadIcon(file);
+    }
+  };
+
+  const currentLang = availableLanguages.find((l) => l.code === language) || {
+    code: language,
+    name: language === 'ru' ? 'Русский' : 'English',
+    flag: language === 'ru' ? '🇷🇺' : '🇬🇧',
+    isPlugin: false,
+  };
+
+  return (
+    <div className="p-6 space-y-6 overflow-y-auto flex-1">
+      {/* App Title */}
+      <div>
+        <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+          <Type className="w-4 h-4 text-accent" />
+          <span>{t.appTitle}</span>
+        </label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="e.g. Config Studio"
+          className="w-full px-3.5 py-2.5 bg-gray-100 dark:bg-black/30 border border-gray-300 dark:border-white/15 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:border-accent transition-colors"
+        />
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5">
+          {t.appTitleHelp}
+        </p>
+      </div>
+
+      {/* Language Selector Dropdown */}
+      {availableLanguages.length > 1 && (
+        <div ref={langDropdownRef} className="relative">
+          <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+            <Globe className="w-4 h-4 text-accent" />
+            <span>{t.language}</span>
+          </label>
+
+          <button
+            type="button"
+            onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
+            className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-black/30 border border-base-border hover:border-gray-400 dark:hover:border-gray-500 rounded-xl text-xs font-medium text-gray-900 dark:text-white flex items-center justify-between transition cursor-pointer shadow-xs"
+          >
+            <span className="flex items-center space-x-2 truncate">
+              <span className="text-sm">{currentLang.flag}</span>
+              <span className="font-semibold">{currentLang.name}</span>
+              {currentLang.isPlugin && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-400 font-mono">
+                  Pack
+                </span>
+              )}
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                isLangDropdownOpen ? 'rotate-180 text-accent' : ''
+              }`}
+            />
+          </button>
+
+          {isLangDropdownOpen && (
+            <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white dark:bg-[#161b22] border border-base-border rounded-xl shadow-2xl p-1 space-y-0.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+              {availableLanguages.map((l) => {
+                const isSelected = language === l.code;
+                return (
+                  <button
+                    key={l.code}
+                    type="button"
+                    onClick={() => {
+                      setLanguage(l.code);
+                      setIsLangDropdownOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 rounded-lg text-xs flex items-center justify-between transition cursor-pointer ${
+                      isSelected
+                        ? 'bg-accent/15 text-accent font-semibold'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    <span className="flex items-center space-x-2 truncate">
+                      <span className="text-sm">{l.flag}</span>
+                      <span className="truncate">{l.name}</span>
+                      {l.isPlugin && (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-400 font-mono">
+                          Pack
+                        </span>
+                      )}
+                    </span>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-accent shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Theme Mode Switch */}
+      <div>
+        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+          {t.theme}
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setThemeMode('dark')}
+            className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
+              themeMode === 'dark'
+                ? 'border-accent bg-accent/15 text-accent shadow-sm'
+                : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
+            }`}
+          >
+            <Moon className="w-3.5 h-3.5" />
+            <span>{t.themeDark}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setThemeMode('light')}
+            className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
+              themeMode === 'light'
+                ? 'border-accent bg-accent/15 text-accent shadow-sm'
+                : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
+            }`}
+          >
+            <Sun className="w-3.5 h-3.5" />
+            <span>{t.themeLight}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Custom Icon & Favicon Upload */}
+      <div>
+        <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+          <ImageIcon className="w-4 h-4 text-accent" />
+          <span>{t.appIcon}</span>
+        </label>
+        <div className="flex items-center space-x-4">
+          <div className="w-14 h-14 rounded-2xl border border-base-border bg-gray-100 dark:bg-black/30 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
+            {iconPreview ? (
+              <img src={iconPreview} alt="Preview" className="w-full h-full object-contain p-1" />
+            ) : settings.hasCustomIcon ? (
+              <img src={`/api/branding/icon?t=${Date.now()}`} alt="Current Icon" className="w-full h-full object-contain p-1" />
+            ) : (
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm text-slate-900 shadow-sm"
+                style={{ backgroundColor: accentColor }}
+              >
+                {title.substring(0, 2).toUpperCase()}
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept=".png,.svg,.ico,.jpg,.webp"
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-medium text-gray-800 dark:text-white bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-base-border transition-colors shadow-2xs"
+            >
+              <Upload className="w-3.5 h-3.5 text-accent" />
+              <span>{t.chooseImage}</span>
+            </button>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+              {t.appIconHelp}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Base Color */}
+      <div>
+        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+          {t.baseColor}
+        </label>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {PRESET_BASE_COLORS.map((preset) => (
+            <button
+              key={preset.hex}
+              type="button"
+              onClick={() => setBaseColor(preset.hex)}
+              className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-xs border transition-all ${
+                baseColor.toLowerCase() === preset.hex.toLowerCase()
+                  ? 'border-accent text-accent font-semibold shadow-xs'
+                  : 'border-base-border text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <span
+                className="w-3 h-3 rounded-full border border-gray-400/30"
+                style={{ backgroundColor: preset.hex }}
+              />
+              <span>{preset.name}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center space-x-2 mt-2">
+          <input
+            type="color"
+            value={baseColor}
+            onChange={(e) => setBaseColor(e.target.value)}
+            className="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent"
+          />
+          <input
+            type="text"
+            value={baseColor}
+            onChange={(e) => setBaseColor(e.target.value)}
+            className="w-28 px-2.5 py-1 bg-gray-100 dark:bg-black/30 border border-base-border rounded-xl text-xs font-mono text-gray-900 dark:text-white focus:outline-none focus:border-accent"
+          />
+        </div>
+      </div>
+
+      {/* Accent Color */}
+      <div>
+        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+          {t.accentColor}
+        </label>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {PRESET_ACCENT_COLORS.map((preset) => (
+            <button
+              key={preset.hex}
+              type="button"
+              onClick={() => setAccentColor(preset.hex)}
+              className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-xs border transition-all ${
+                accentColor.toLowerCase() === preset.hex.toLowerCase()
+                  ? 'border-accent text-accent font-semibold shadow-xs'
+                  : 'border-base-border text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <span
+                className="w-3 h-3 rounded-full border border-gray-400/30"
+                style={{ backgroundColor: preset.hex }}
+              />
+              <span>{preset.name}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center space-x-2 mt-2">
+          <input
+            type="color"
+            value={accentColor}
+            onChange={(e) => setAccentColor(e.target.value)}
+            className="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent"
+          />
+          <input
+            type="text"
+            value={accentColor}
+            onChange={(e) => setAccentColor(e.target.value)}
+            className="w-28 px-2.5 py-1 bg-gray-100 dark:bg-black/30 border border-base-border rounded-xl text-xs font-mono text-gray-900 dark:text-white focus:outline-none focus:border-accent"
+          />
+        </div>
+      </div>
+
+      {/* Bottom Dock Strip Mode */}
+      <div>
+        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+          {t.dockStripSetting}
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={() => setBottomDockMode('auto')}
+            className={`py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center justify-center space-y-1 transition-all ${
+              bottomDockMode === 'auto'
+                ? 'border-accent bg-accent/15 text-accent font-semibold shadow-xs'
+                : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
+            }`}
+          >
+            <span className="font-semibold">{t.dockModeAuto}</span>
+            <span className="text-[10px] opacity-75">{t.dockModeAutoDesc}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setBottomDockMode('always')}
+            className={`py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center justify-center space-y-1 transition-all ${
+              bottomDockMode === 'always'
+                ? 'border-accent bg-accent/15 text-accent font-semibold shadow-xs'
+                : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
+            }`}
+          >
+            <span className="font-semibold">{t.dockModeAlways}</span>
+            <span className="text-[10px] opacity-75">{t.dockModeAlwaysDesc}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setBottomDockMode('hidden')}
+            className={`py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center justify-center space-y-1 transition-all ${
+              bottomDockMode === 'hidden'
+                ? 'border-accent bg-accent/15 text-accent font-semibold shadow-xs'
+                : 'border-base-border bg-gray-50 dark:bg-black/20 text-gray-600 dark:text-gray-400'
+            }`}
+          >
+            <span className="font-semibold">{t.dockModeHidden}</span>
+            <span className="text-[10px] opacity-75">{t.dockModeHiddenDesc}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

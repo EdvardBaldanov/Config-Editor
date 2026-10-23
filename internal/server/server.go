@@ -102,6 +102,8 @@ func (s *Server) setupRoutes() {
 	mux.HandleFunc("POST /api/plugins/install/url", s.handleInstallPluginURL)
 	mux.HandleFunc("DELETE /api/plugins/{id}", s.handleDeletePlugin)
 	mux.HandleFunc("GET /api/plugins/{id}/files/{path...}", s.handleServePluginFile)
+	mux.HandleFunc("GET /api/plugins/{id}/settings", s.handleGetPluginSettings)
+	mux.HandleFunc("POST /api/plugins/{id}/settings", s.handleSavePluginSettings)
 	mux.HandleFunc("POST /api/plugins/exec", s.handleExecPluginCommand)
 	mux.HandleFunc("POST /api/plugin-processes/start", s.handleStartPluginProcess)
 	mux.HandleFunc("POST /api/plugin-processes/stop", s.handleStopPluginProcess)

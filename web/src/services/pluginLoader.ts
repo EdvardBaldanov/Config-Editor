@@ -75,6 +75,11 @@ class PluginLoader {
   private loadedPluginIds: Set<string> = new Set();
   private queuedCompletionProviders: Array<{ language: string; provider: any }> = [];
   private outlineProviders: Map<string, (content: string, filename: string) => OutlineNode[]> = new Map();
+  private pluginSettingsPanels: Map<string, (container: HTMLElement) => void> = new Map();
+
+  getPluginSettingsRenderer(pluginId: string) {
+    return this.pluginSettingsPanels.get(pluginId);
+  }
 
   private openFileHandler: (path: string) => Promise<void> = async () => {};
   private createFileHandler: (path: string, content?: string) => Promise<void> = async () => {};
@@ -475,6 +480,14 @@ class PluginLoader {
           return res.success;
         },
       },
+
+      registerPluginSettings: (pluginId: string, def: { render: (container: HTMLElement) => void }) => {
+        if (pluginId && def?.render) {
+          this.pluginSettingsPanels.set(pluginId, def.render);
+        }
+      },
+      getPluginSettings: (pluginId: string) => api.getPluginSettings(pluginId),
+      savePluginSettings: (pluginId: string, settings: Record<string, any>) => api.savePluginSettings(pluginId, settings),
     };
   }
 
@@ -635,6 +648,7 @@ class PluginLoader {
     const css = document.getElementById(`plugin-css-${id}`);
     if (css) css.remove();
 
+    this.pluginSettingsPanels.delete(id);
     unregisterPluginLocales(id);
     unregisterLanguagePack(id);
 

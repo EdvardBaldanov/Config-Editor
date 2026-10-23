@@ -500,3 +500,54 @@ func (s *Server) handleGetPluginProcessLogs(w http.ResponseWriter, r *http.Reque
 
 	jsonResponse(w, http.StatusOK, map[string]string{"processId": procID, "logs": logs})
 }
+
+func (s *Server) handleGetPluginSettings(w http.ResponseWriter, r *http.Request) {
+	pluginID := r.PathValue("id")
+	if pluginID == "" {
+		jsonError(w, http.StatusBadRequest, "plugin id is required")
+		return
+	}
+
+	settings, err := s.plugins.GetPluginSettings(pluginID)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "failed to get plugin settings: "+err.Error())
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]any{"id": pluginID, "settings": settings})
+}
+
+func (s *Server) handleSavePluginSettings(w http.ResponseWriter, r *http.Request) {
+	pluginID := r.PathValue("id")
+	if pluginID == "" {
+		jsonError(w, http.StatusBadRequest, "plugin id is required")
+		return
+	}
+
+	var req struct {
+		Settings map[string]any `json:"settings"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	if err := s.plugins.SavePluginSettings(pluginID, req.Settings); err != nil {
+		jsonError(w, http.StatusInternalServerError, "failed to save plugin settings: "+err.Error())
+		return
+	}
+
+	if s.audit != nil {
+		_ = s.audit.Log(audit.Event{
+			User:     s.getAuditUser(r),
+			IP:       r.RemoteAddr,
+			Category: audit.CategoryPlugin,
+			Action:   "plugin.settings.save",
+			Severity: audit.SeverityInfo,
+			Target:   pluginID,
+			Details:  map[string]any{"pluginId": pluginID, "keysCount": len(req.Settings)},
+		})
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]any{"status": "saved", "id": pluginID, "settings": req.Settings})
+}

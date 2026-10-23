@@ -346,6 +346,7 @@
 - [x] **v1.7.0 Inter-Plugin Services & Dependency Engine**: Декларация зависимостей SemVer, защита от каскадного удаления (HTTP 409 Conflict), DAG топологический порядок инициализации, безопасная Proxy-шина `window.ConfigStudio.services`.
 - [x] **v1.8.0 Plugin i18n & UI Language Packs**: Локализация плагинов `locales/*.json`, языковые пакеты интерфейса (`localization.json`), безопасный fallback и реактивное переключение языков.
 - [x] **v1.9.0 Core Secrets Store & Fleet Credentials**: Безопасное хранилище секретов в системном OS Keychain (Windows Credential Manager / AES-256-GCM Vault) со 100% Zero-Secret изоляцией от профилей. Полноценное управление учетными данными (создание, редактирование, удаление, просмотр), разделение на общие (`shared`) для парка серверов и плагинные (`plugin`) секреты, интеграция с защитой авторизацией (Direct Login) и сессионным режимом повышенных привилегий (Privileged Mode на 15 минут), вкладка «Секреты и Ключи» в окне настроек.
+- [x] **v1.9.6 Modular Settings Architecture & Plugin Preferences**: Декомпозиция монолитного окна настроек (`SettingsModal.tsx`) на модульные изолированные вкладки (`GeneralTab`, `SecurityTab`, `SecretsTab`, `PluginsTab`, `PluginSettingsTab`, `ProfileTab`, `AuditTab`). Двухпанельная вкладка настроек плагинов (Master-Detail layout) с поиском и динамической подсветкой активного выбора акцентным цветом темы (`settings.theme.accentColor`). Изолированное файловое хранилище параметров расширений `data/plugin-settings/<plugin-id>.json`. Полная интеграция настроек плагинов в экспорт/импорт профилей (`config-studio-profile.json`) с нулевой утечкой секретов (Zero-Secret). Публичное JS API: `window.ConfigStudio.registerPluginSettings`, `getPluginSettings`, `savePluginSettings`.
 - [x] **config-studio-web-devkit**: HTML/PHP Live Preview, встроенный сервер :8085, сниппеты Monaco.
 - [x] **config-studio-remote-agent**: Мультисерверное переключение хостов из шапки редактора.
 - [x] **config-studio-plugin-docs**: Официальная документация API, спецификация манифеста и TypeScript SDK.
@@ -426,6 +427,36 @@
   - [x] Спецификация бинарного формата `.cspkg`, инструкция по сборке и публикация Release v1.0.0 с готовыми бинарниками компилятора.
   - [x] Автоматизация сборки плагинов через единый GitHub Actions workflow во всех репозиториях.
   - [x] Обновление TypeScript SDK типингов (`ConfigStudioAPI`, `ContextMenuItem`, `SecretItem`).
+
+### ⚙️ ВЕРСИЯ 1.9.6: Модульная архитектура настроек и персонализация плагинов (Modular Settings & Plugin Preferences) — (ЗАВЕРШЕНА НА 100%)
+- [x] **Модульная декомпозиция SettingsModal**:
+  - Полный рефакторинг монолитного `SettingsModal.tsx` (~3200 строк) в легковесную оболочку (~270 строк) и независимые компоненты вкладок в директории `web/src/components/settings/tabs/`:
+    - `GeneralTab.tsx` — персонализация темы (базовые и акцентные цвета, аватар/иконка, темная/светлая тема, переключение языка, режим нижнего дока).
+    - `SecurityTab.tsx` — Direct Login, мастер-пароль, REST API токен, маски Structure Guard.
+    - `SecretsTab.tsx` — хранилище OS Keychain / Vault, Privileged Mode (15 минут), управление учетными данными.
+    - `PluginsTab.tsx` — каталог расширений, переключатели, consent dialog, зависимости.
+    - `PluginSettingsTab.tsx` — двухпанельная система настроек плагинов.
+    - `ProfileTab.tsx` — экспорт/импорт профилей и управление источниками каталогов.
+    - `AuditTab.tsx` — единый структурированный аудит-лог с фильтрами по категориям и AI diagnostic bundle.
+  - Сохранение 100% обратной совместимости через реэкспорт из `web/src/components/SettingsModal.tsx`.
+- [x] **Двухпанельная вкладка настроек плагинов (Master-Detail Layout)**:
+  - Левая колонка: стопка установленных плагинов со скроллом, мгновенным поиском по имени/описанию, бейджами версий и авторов.
+  - **Динамическая подсветка темы**: активный выбранный плагин строго подсвечивается текущим акцентным цветом темы пользователя (`settings.theme.accentColor`), без жестко захардкоженных цветов.
+  - Правая панель: карточка настроек выбранного плагина:
+    - Поддержка кастомных рендереров плагинов (`registerPluginSettings`).
+    - Автоматическая динамическая форма на основе декларативной схемы `settings` в манифесте `plugin.json` (`boolean`, `string`, `number`, `select`).
+    - Информативное состояние для плагинов без настраиваемых параметров (версия, автор, описание, выданные разрешения).
+- [x] **Изолированное бэкенд-хранилище `data/plugin-settings/`**:
+  - Каждое расширение хранит конфигурацию в отдельном файле `data/plugin-settings/<plugin-id>.json`.
+  - Эндпоинты: `GET /api/plugins/{id}/settings`, `POST /api/plugins/{id}/settings`.
+  - Аудит-логирование изменений настроек плагинов (`plugin.settings.save`).
+- [x] **Сквозная поддержка профилей (Zero-Secret Portability)**:
+  - Автоматический сбор всех конфигураций плагинов при экспорте профиля (`GET /api/profile/export`).
+  - Восстановление индивидуальных настроек плагинов при импорте профиля (`POST /api/profile/import`).
+- [x] **Публичное JS API в `window.ConfigStudio`**:
+  - `registerPluginSettings(pluginId, renderer)`
+  - `getPluginSettings(pluginId)`
+  - `savePluginSettings(pluginId, settings)`
 
 ### 🖧 ФАЗА 2A: Системное администрирование и инфраструктура (Sysadmin & Fleet)
 - [ ] **config-studio-ssh**:

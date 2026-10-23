@@ -21,6 +21,7 @@ import (
 
 type Manager struct {
 	pluginsDir      string
+	settingsDir     string
 	runner          *Runner
 	sources         *SourcesManager
 	mu              sync.RWMutex
@@ -34,6 +35,11 @@ func NewManager(dataDir string, runner *Runner) (*Manager, error) {
 		return nil, fmt.Errorf("failed to create plugins directory: %w", err)
 	}
 
+	settingsDir := filepath.Join(dataDir, "plugin-settings")
+	if err := os.MkdirAll(settingsDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create plugin-settings directory: %w", err)
+	}
+
 	sm, err := NewSourcesManager(pluginsDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize sources manager: %w", err)
@@ -41,6 +47,7 @@ func NewManager(dataDir string, runner *Runner) (*Manager, error) {
 
 	m := &Manager{
 		pluginsDir:      pluginsDir,
+		settingsDir:     settingsDir,
 		runner:          runner,
 		sources:         sm,
 		state:           make(map[string]bool),
@@ -74,6 +81,84 @@ func (m *Manager) saveState() error {
 		return err
 	}
 	return os.WriteFile(m.stateFilePath(), data, 0644)
+}
+
+// GetPluginSettings reads plugin-specific settings from data/plugin-settings/<pluginId>.json.
+func (m *Manager) GetPluginSettings(id string) (map[string]any, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	cleanID := filepath.Base(id)
+	target := filepath.Join(m.settingsDir, cleanID+".json")
+	data, err := os.ReadFile(target)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]any{}, nil
+		}
+		return nil, err
+	}
+
+	var res map[string]any
+	if err := json.Unmarshal(data, &res); err != nil {
+		return map[string]any{}, nil
+	}
+	if res == nil {
+		res = map[string]any{}
+	}
+	return res, nil
+}
+
+// SavePluginSettings saves plugin-specific settings to data/plugin-settings/<pluginId>.json.
+func (m *Manager) SavePluginSettings(id string, settings map[string]any) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	cleanID := filepath.Base(id)
+	if cleanID == "" || cleanID == "." || cleanID == "/" || cleanID == "\\" {
+		return fmt.Errorf("invalid plugin id")
+	}
+
+	if err := os.MkdirAll(m.settingsDir, 0755); err != nil {
+		return err
+	}
+
+	if settings == nil {
+		settings = map[string]any{}
+	}
+
+	data, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal settings: %w", err)
+	}
+
+	target := filepath.Join(m.settingsDir, cleanID+".json")
+	return os.WriteFile(target, data, 0644)
+}
+
+// GetAllPluginSettings returns all saved plugin settings mapped by plugin ID.
+func (m *Manager) GetAllPluginSettings() map[string]map[string]any {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	res := make(map[string]map[string]any)
+	files, err := os.ReadDir(m.settingsDir)
+	if err != nil {
+		return res
+	}
+
+	for _, f := range files {
+		if !f.IsDir() && strings.HasSuffix(f.Name(), ".json") {
+			pluginID := strings.TrimSuffix(f.Name(), ".json")
+			data, err := os.ReadFile(filepath.Join(m.settingsDir, f.Name()))
+			if err == nil {
+				var s map[string]any
+				if err := json.Unmarshal(data, &s); err == nil && s != nil {
+					res[pluginID] = s
+				}
+			}
+		}
+	}
+	return res
 }
 
 // enrichManifestLocales populates and merges locales and language packs from the plugin directory.
