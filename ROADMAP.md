@@ -347,6 +347,7 @@
 - [x] **v1.8.0 Plugin i18n & UI Language Packs**: Локализация плагинов `locales/*.json`, языковые пакеты интерфейса (`localization.json`), безопасный fallback и реактивное переключение языков.
 - [x] **v1.9.0 Core Secrets Store & Fleet Credentials**: Безопасное хранилище секретов в системном OS Keychain (Windows Credential Manager / AES-256-GCM Vault) со 100% Zero-Secret изоляцией от профилей. Полноценное управление учетными данными (создание, редактирование, удаление, просмотр), разделение на общие (`shared`) для парка серверов и плагинные (`plugin`) секреты, интеграция с защитой авторизацией (Direct Login) и сессионным режимом повышенных привилегий (Privileged Mode на 15 минут), вкладка «Секреты и Ключи» в окне настроек.
 - [x] **v1.9.6 Modular Settings Architecture & Plugin Preferences**: Декомпозиция монолитного окна настроек (`SettingsModal.tsx`) на модульные изолированные вкладки (`GeneralTab`, `SecurityTab`, `SecretsTab`, `PluginsTab`, `PluginSettingsTab`, `ProfileTab`, `AuditTab`). Двухпанельная вкладка настроек плагинов (Master-Detail layout) с поиском и динамической подсветкой активного выбора акцентным цветом темы (`settings.theme.accentColor`). Изолированное файловое хранилище параметров расширений `data/plugin-settings/<plugin-id>.json`. Полная интеграция настроек плагинов в экспорт/импорт профилей (`config-studio-profile.json`) с нулевой утечкой секретов (Zero-Secret). Публичное JS API: `window.ConfigStudio.registerPluginSettings`, `getPluginSettings`, `savePluginSettings`.
+- [ ] **v1.9.7 Modal Geometry Stability & Horizontal Scroll**: Фиксированная стабильная высота окна настроек без скачков при смене вкладок, горизонтальная прокрутка для широкого контента и кода.
 - [x] **config-studio-web-devkit**: HTML/PHP Live Preview, встроенный сервер :8085, сниппеты Monaco.
 - [x] **config-studio-remote-agent**: Мультисерверное переключение хостов из шапки редактора.
 - [x] **config-studio-plugin-docs**: Официальная документация API, спецификация манифеста и TypeScript SDK.
@@ -457,6 +458,16 @@
   - `registerPluginSettings(pluginId, renderer)`
   - `getPluginSettings(pluginId)`
   - `savePluginSettings(pluginId, settings)`
+
+### 📐 ВЕРСИЯ 1.9.7: Стабилизация геометрии окон и горизонтальный скроллинг (Modal Geometry & Horizontal Scroll)
+- [ ] **Фиксированная стабильная геометрия окна настроек (Zero-Jitter Modal Layout)**:
+  - Устранение скачков и «прыжков» высоты окна при переключении между вкладками с разным объемом содержимого.
+  - Фиксация стабильных пропорций модального окна настроек (`h-[680px]` / `h-[82vh]`, `max-w-4xl`) с предсказуемой высотой рабочей области для всех вкладок.
+  - Синхронизация высоты `PluginSettingsTab` с общим контейнером модалки (замена жесткого `h-[560px]` на `h-full flex-1`).
+- [ ] **Полноценная горизонтальная прокрутка (Horizontal Scroll Support)**:
+  - Добавление плавной горизонтальной прокрутки для длинных строк, таблиц, кодовых блоков и широких полей настроек без обрезания текста и сдвига верстки.
+  - Применение фирменного ультратонкого скроллбара (`custom-scrollbar`) с подсветкой акцентным цветом для всех горизонтальных контейнеров (`overflow-x-auto`).
+  - Оптимизация отступов и защита от перекрытия содержимого (Zero-Overlap).
 
 ### 🖧 ФАЗА 2A: Системное администрирование и инфраструктура (Sysadmin & Fleet)
 - [ ] **config-studio-ssh**:
