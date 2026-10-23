@@ -12,11 +12,14 @@ import {
   Clock,
   Layers,
   Code,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { BottomPanelDef } from '../services/pluginLoader';
 import { OpenFile, GuardValidationResult, GuardIssue, AuditEvent } from '../types';
 import { api } from '../services/api';
 import { translations } from '../utils/i18n';
+import { telemetry } from '../services/telemetry';
 
 interface BottomDockStripProps {
   panels: BottomPanelDef[];
@@ -58,19 +61,29 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [recentAudit, setRecentAudit] = useState<AuditEvent[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [auditCategory, setAuditCategory] = useState<string>('');
+  const [copiedAi, setCopiedAi] = useState(false);
 
   const mountContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Load audit events for Output tab
-  const loadRecentAudit = async () => {
+  const loadRecentAudit = async (category = auditCategory) => {
     setAuditLoading(true);
     try {
-      const res = await api.getAuditLogs({ limit: 30 });
+      const res = await api.getAuditLogs({ limit: 40, category: category || undefined });
       setRecentAudit(res.events || []);
     } catch {
       // ignore
     } finally {
       setAuditLoading(false);
+    }
+  };
+
+  const handleCopyAiReport = async () => {
+    const success = await telemetry.copyDiagnosticReport();
+    if (success) {
+      setCopiedAi(true);
+      setTimeout(() => setCopiedAi(false), 2000);
     }
   };
 
@@ -180,15 +193,26 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
 
             <div className="flex items-center space-x-1">
               {activePanelId === 'output' && (
-                <button
-                  type="button"
-                  onClick={loadRecentAudit}
-                  disabled={auditLoading}
-                  className="p-1 hover:text-white hover:bg-white/5 rounded transition"
-                  title={t.dockRefreshTooltip}
-                >
-                  <RefreshCw size={13} className={auditLoading ? 'animate-spin' : ''} />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCopyAiReport}
+                    className="flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 transition mr-1 font-medium"
+                    title={t.auditCopyAi}
+                  >
+                    {copiedAi ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+                    <span>{copiedAi ? t.auditCopied : t.auditCopyAi}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => loadRecentAudit()}
+                    disabled={auditLoading}
+                    className="p-1 hover:text-white hover:bg-white/5 rounded transition"
+                    title={t.dockRefreshTooltip}
+                  >
+                    <RefreshCw size={13} className={auditLoading ? 'animate-spin' : ''} />
+                  </button>
+                </>
               )}
 
               <button
@@ -270,32 +294,132 @@ export const BottomDockStrip: React.FC<BottomDockStripProps> = ({
 
             {/* 2. Built-in: Output / Audit Tab */}
             {activePanelId === 'output' && (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
+                {/* Category Filter Pills */}
+                <div className="flex items-center gap-1 pb-1.5 border-b border-[#21262d]/70 overflow-x-auto text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuditCategory('');
+                      loadRecentAudit('');
+                    }}
+                    className={`px-2 py-0.5 rounded transition font-medium ${
+                      auditCategory === ''
+                        ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
+                        : 'text-gray-400 hover:text-white bg-white/5'
+                    }`}
+                  >
+                    {t.auditFilterAll}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuditCategory('error');
+                      loadRecentAudit('error');
+                    }}
+                    className={`px-2 py-0.5 rounded transition font-medium flex items-center space-x-1 ${
+                      auditCategory === 'error'
+                        ? 'bg-rose-500/25 text-rose-300 border border-rose-500/50'
+                        : 'text-gray-400 hover:text-rose-300 bg-white/5'
+                    }`}
+                  >
+                    <span>🛑</span>
+                    <span>{t.auditCatError || 'Ошибки'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuditCategory('user');
+                      loadRecentAudit('user');
+                    }}
+                    className={`px-2 py-0.5 rounded transition font-medium flex items-center space-x-1 ${
+                      auditCategory === 'user'
+                        ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/50'
+                        : 'text-gray-400 hover:text-emerald-300 bg-white/5'
+                    }`}
+                  >
+                    <span>👤</span>
+                    <span>{t.auditCatUser || 'Действия'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuditCategory('network');
+                      loadRecentAudit('network');
+                    }}
+                    className={`px-2 py-0.5 rounded transition font-medium flex items-center space-x-1 ${
+                      auditCategory === 'network'
+                        ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/50'
+                        : 'text-gray-400 hover:text-indigo-300 bg-white/5'
+                    }`}
+                  >
+                    <span>🌐</span>
+                    <span>{t.auditCatNetwork || 'Сеть'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuditCategory('system');
+                      loadRecentAudit('system');
+                    }}
+                    className={`px-2 py-0.5 rounded transition font-medium flex items-center space-x-1 ${
+                      auditCategory === 'system'
+                        ? 'bg-slate-700/60 text-slate-200 border border-slate-600'
+                        : 'text-gray-400 hover:text-slate-300 bg-white/5'
+                    }`}
+                  >
+                    <span>⚙️</span>
+                    <span>{t.auditCatSystem || 'Система'}</span>
+                  </button>
+                </div>
+
                 {recentAudit.length > 0 ? (
                   recentAudit.map((evt) => (
                     <div
                       key={evt.id}
-                      className="flex items-center justify-between py-1 px-2 hover:bg-white/5 rounded text-[11px] text-[#c9d1d9] border-b border-[#21262d]/50"
+                      className="flex flex-col py-1 px-2 hover:bg-white/5 rounded text-[11px] text-[#c9d1d9] border-b border-[#21262d]/50"
                     >
-                      <div className="flex items-center space-x-2 truncate">
-                        <Clock size={11} className="text-[#8b949e] shrink-0" />
-                        <span className="text-[#8b949e] shrink-0">
-                          {new Date(evt.timestamp).toLocaleTimeString()}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 truncate">
+                          <Clock size={11} className="text-[#8b949e] shrink-0" />
+                          <span className="text-[#8b949e] shrink-0 font-mono text-[10px]">
+                            {new Date(evt.timestamp).toLocaleTimeString()}
+                          </span>
+                          <span
+                            className={`font-semibold px-1 py-0.2 rounded text-[9px] uppercase tracking-wider ${
+                              evt.category === 'error' || evt.severity === 'error'
+                                ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                                : evt.category === 'network'
+                                ? 'bg-indigo-950 text-indigo-300 border border-indigo-800'
+                                : evt.category === 'system'
+                                ? 'bg-slate-800 text-slate-300 border border-slate-700'
+                                : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            }`}
+                          >
+                            {evt.category || 'user'}
+                          </span>
+                          <span
+                            className={`font-semibold px-1.5 py-0.2 rounded text-[10px] ${
+                              evt.severity === 'error' || evt.severity === 'critical'
+                                ? 'bg-rose-900/60 text-rose-200 border border-rose-700'
+                                : evt.severity === 'warn'
+                                ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                                : 'bg-cyan-950 text-cyan-300 border border-cyan-800'
+                            }`}
+                          >
+                            {evt.action}
+                          </span>
+                          <span className="font-mono text-gray-200 truncate">{evt.target}</span>
+                        </div>
+                        <span className="text-[#8b949e] text-[10px] shrink-0 font-mono">
+                          {evt.user} {evt.source ? `[${evt.source}]` : ''}
                         </span>
-                        <span
-                          className={`font-semibold px-1.5 py-0.2 rounded text-[10px] ${
-                            evt.severity === 'warn'
-                              ? 'bg-amber-950 text-amber-300 border border-amber-800'
-                              : 'bg-cyan-950 text-cyan-300 border border-cyan-800'
-                          }`}
-                        >
-                          {evt.action}
-                        </span>
-                        <span className="font-mono text-gray-300 truncate">{evt.target}</span>
                       </div>
-                      <span className="text-[#8b949e] text-[10px] shrink-0 font-mono">
-                        {evt.user} ({evt.ip})
-                      </span>
+                      {evt.details && Object.keys(evt.details).length > 0 && (
+                        <div className="text-[10px] text-gray-400 font-mono pl-6 pt-0.5 truncate">
+                          {JSON.stringify(evt.details)}
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (

@@ -63,6 +63,7 @@ import {
   getPluginName,
   getPluginDescription,
 } from '../utils/i18n';
+import { telemetry } from '../services/telemetry';
 import { copyToClipboard } from '../utils/color';
 import { api } from '../services/api';
 import { pluginManager } from '../services/pluginLoader';
@@ -314,9 +315,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [auditTotal, setAuditTotal] = useState(0);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditSeverity, setAuditSeverity] = useState<string>('');
+  const [auditCategory, setAuditCategory] = useState<string>('');
   const [auditSearch, setAuditSearch] = useState<string>('');
   const [expandedAuditId, setExpandedAuditId] = useState<string | null>(null);
   const [isExportingAudit, setIsExportingAudit] = useState(false);
+  const [copiedAiAudit, setCopiedAiAudit] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
@@ -970,11 +973,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const loadAuditLogs = async (sev = auditSeverity, query = auditSearch) => {
+  const loadAuditLogs = async (sev = auditSeverity, query = auditSearch, cat = auditCategory) => {
     setAuditLoading(true);
     try {
       const res = await api.getAuditLogs({
         severity: sev || undefined,
+        category: cat || undefined,
         search: query.trim() || undefined,
         limit: 100,
       });
@@ -2639,109 +2643,209 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </p>
               </div>
 
-              {/* Export button */}
-              <button
-                type="button"
-                onClick={handleExportAuditLogs}
-                disabled={isExportingAudit}
-                title={t.auditExport}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-700 dark:text-gray-200 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 transition shrink-0 cursor-pointer disabled:opacity-50"
-              >
-                <Download size={13} className={`text-accent ${isExportingAudit ? 'animate-bounce' : ''}`} />
-                <span>{isExportingAudit ? t.auditExporting : t.auditExport}</span>
-              </button>
+              <div className="flex items-center space-x-2 shrink-0">
+                {/* Copy AI Report button */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await telemetry.copyDiagnosticReport();
+                    if (ok) {
+                      setCopiedAiAudit(true);
+                      setTimeout(() => setCopiedAiAudit(false), 2000);
+                    }
+                  }}
+                  title={t.auditCopyAi}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 transition cursor-pointer"
+                >
+                  {copiedAiAudit ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                  <span>{copiedAiAudit ? t.auditCopied : t.auditCopyAi}</span>
+                </button>
+
+                {/* Export button */}
+                <button
+                  type="button"
+                  onClick={handleExportAuditLogs}
+                  disabled={isExportingAudit}
+                  title={t.auditExport}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-700 dark:text-gray-200 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 transition cursor-pointer disabled:opacity-50"
+                >
+                  <Download size={13} className={`text-accent ${isExportingAudit ? 'animate-bounce' : ''}`} />
+                  <span>{isExportingAudit ? t.auditExporting : t.auditExport}</span>
+                </button>
+              </div>
             </div>
 
             {/* Filter and Search Bar */}
-            <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
-              {/* Search input */}
-              <div className="relative flex-1">
-                <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
-                <input
-                  type="text"
-                  value={auditSearch}
-                  onChange={(e) => {
-                    setAuditSearch(e.target.value);
-                    loadAuditLogs(auditSeverity, e.target.value);
-                  }}
-                  placeholder={t.auditSearchPlaceholder}
-                  className="w-full pl-8 pr-3 py-2 bg-gray-100 dark:bg-black/30 border border-base-border rounded-xl text-xs text-gray-900 dark:text-white focus:outline-none focus:border-accent transition"
-                />
+            <div className="flex flex-col gap-2 pt-2">
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                {/* Search input */}
+                <div className="relative flex-1">
+                  <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={auditSearch}
+                    onChange={(e) => {
+                      setAuditSearch(e.target.value);
+                      loadAuditLogs(auditSeverity, e.target.value, auditCategory);
+                    }}
+                    placeholder={t.auditSearchPlaceholder}
+                    className="w-full pl-8 pr-3 py-2 bg-gray-100 dark:bg-black/30 border border-base-border rounded-xl text-xs text-gray-900 dark:text-white focus:outline-none focus:border-accent transition"
+                  />
+                </div>
+
+                {/* Severity Filter Pills */}
+                <div className="flex items-center space-x-1 p-1 bg-black/10 dark:bg-black/30 rounded-xl border border-base-border shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuditSeverity('');
+                      loadAuditLogs('', auditSearch, auditCategory);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                      auditSeverity === ''
+                        ? 'bg-base-surface text-accent shadow-xs'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {t.auditFilterAll}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuditSeverity('critical');
+                      loadAuditLogs('critical', auditSearch, auditCategory);
+                    }}
+                    className={`px-2 py-1 rounded-lg text-xs font-medium transition flex items-center space-x-1 ${
+                      auditSeverity === 'critical'
+                        ? 'bg-red-500/20 text-red-400 shadow-xs'
+                        : 'text-gray-400 hover:text-red-400'
+                    }`}
+                  >
+                    <span>🛑</span>
+                    <span>{t.auditSeverityCritical}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuditSeverity('warn');
+                      loadAuditLogs('warn', auditSearch, auditCategory);
+                    }}
+                    className={`px-2 py-1 rounded-lg text-xs font-medium transition flex items-center space-x-1 ${
+                      auditSeverity === 'warn'
+                        ? 'bg-amber-500/20 text-amber-400 shadow-xs'
+                        : 'text-gray-400 hover:text-amber-400'
+                    }`}
+                  >
+                    <span>⚠️</span>
+                    <span>{t.auditSeverityWarn}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuditSeverity('info');
+                      loadAuditLogs('info', auditSearch, auditCategory);
+                    }}
+                    className={`px-2 py-1 rounded-lg text-xs font-medium transition flex items-center space-x-1 ${
+                      auditSeverity === 'info'
+                        ? 'bg-blue-500/20 text-blue-400 shadow-xs'
+                        : 'text-gray-400 hover:text-blue-400'
+                    }`}
+                  >
+                    <span>ℹ️</span>
+                    <span>{t.auditSeverityInfo}</span>
+                  </button>
+                </div>
+
+                {/* Refresh button */}
+                <button
+                  type="button"
+                  onClick={() => loadAuditLogs()}
+                  disabled={auditLoading}
+                  className="p-2 rounded-xl bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-gray-400 hover:text-white transition shrink-0 cursor-pointer"
+                  title={t.auditRefresh}
+                >
+                  <RefreshCw size={14} className={auditLoading ? 'animate-spin text-accent' : ''} />
+                </button>
               </div>
 
-              {/* Severity Filter Pills */}
-              <div className="flex items-center space-x-1 p-1 bg-black/10 dark:bg-black/30 rounded-xl border border-base-border shrink-0">
+              {/* Category Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto text-xs py-0.5">
+                <span className="text-[11px] text-gray-500 dark:text-gray-400 mr-1">{t.auditCategoryAll}:</span>
                 <button
                   type="button"
                   onClick={() => {
-                    setAuditSeverity('');
-                    loadAuditLogs('', auditSearch);
+                    setAuditCategory('');
+                    loadAuditLogs(auditSeverity, auditSearch, '');
                   }}
                   className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
-                    auditSeverity === ''
-                      ? 'bg-base-surface text-accent shadow-xs'
-                      : 'text-gray-400 hover:text-white'
+                    auditCategory === ''
+                      ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
+                      : 'text-gray-400 hover:text-white bg-black/5 dark:bg-white/5'
                   }`}
                 >
-                  {t.auditFilterAll}
+                  Все
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setAuditSeverity('critical');
-                    loadAuditLogs('critical', auditSearch);
+                    setAuditCategory('error');
+                    loadAuditLogs(auditSeverity, auditSearch, 'error');
                   }}
                   className={`px-2 py-1 rounded-lg text-xs font-medium transition flex items-center space-x-1 ${
-                    auditSeverity === 'critical'
-                      ? 'bg-red-500/20 text-red-400 shadow-xs'
-                      : 'text-gray-400 hover:text-red-400'
+                    auditCategory === 'error'
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                      : 'text-gray-400 hover:text-rose-300 bg-black/5 dark:bg-white/5'
                   }`}
                 >
                   <span>🛑</span>
-                  <span>{t.auditSeverityCritical}</span>
+                  <span>{t.auditCatError || 'Ошибки'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setAuditSeverity('warn');
-                    loadAuditLogs('warn', auditSearch);
+                    setAuditCategory('user');
+                    loadAuditLogs(auditSeverity, auditSearch, 'user');
                   }}
                   className={`px-2 py-1 rounded-lg text-xs font-medium transition flex items-center space-x-1 ${
-                    auditSeverity === 'warn'
-                      ? 'bg-amber-500/20 text-amber-400 shadow-xs'
-                      : 'text-gray-400 hover:text-amber-400'
+                    auditCategory === 'user'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'text-gray-400 hover:text-emerald-300 bg-black/5 dark:bg-white/5'
                   }`}
                 >
-                  <span>⚠️</span>
-                  <span>{t.auditSeverityWarn}</span>
+                  <span>👤</span>
+                  <span>{t.auditCatUser || 'Действия'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setAuditSeverity('info');
-                    loadAuditLogs('info', auditSearch);
+                    setAuditCategory('network');
+                    loadAuditLogs(auditSeverity, auditSearch, 'network');
                   }}
                   className={`px-2 py-1 rounded-lg text-xs font-medium transition flex items-center space-x-1 ${
-                    auditSeverity === 'info'
-                      ? 'bg-blue-500/20 text-blue-400 shadow-xs'
-                      : 'text-gray-400 hover:text-blue-400'
+                    auditCategory === 'network'
+                      ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                      : 'text-gray-400 hover:text-indigo-300 bg-black/5 dark:bg-white/5'
                   }`}
                 >
-                  <span>ℹ️</span>
-                  <span>{t.auditSeverityInfo}</span>
+                  <span>🌐</span>
+                  <span>{t.auditCatNetwork || 'Сеть'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuditCategory('system');
+                    loadAuditLogs(auditSeverity, auditSearch, 'system');
+                  }}
+                  className={`px-2 py-1 rounded-lg text-xs font-medium transition flex items-center space-x-1 ${
+                    auditCategory === 'system'
+                      ? 'bg-slate-700/60 text-slate-200 border border-slate-600'
+                      : 'text-gray-400 hover:text-slate-300 bg-black/5 dark:bg-white/5'
+                  }`}
+                >
+                  <span>⚙️</span>
+                  <span>{t.auditCatSystem || 'Система'}</span>
                 </button>
               </div>
-
-              {/* Refresh button */}
-              <button
-                type="button"
-                onClick={() => loadAuditLogs()}
-                disabled={auditLoading}
-                className="p-2 rounded-xl bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-gray-400 hover:text-white transition shrink-0"
-                title={t.auditRefresh}
-              >
-                <RefreshCw size={14} className={auditLoading ? 'animate-spin text-accent' : ''} />
-              </button>
             </div>
 
             {/* Total Count and Status */}
@@ -2779,6 +2883,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                          {/* Category badge */}
+                          <span
+                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase ${
+                              evt.category === 'error' || evt.severity === 'error'
+                                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                                : evt.category === 'network'
+                                ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/40'
+                                : evt.category === 'system'
+                                ? 'bg-slate-700/60 text-slate-300 border border-slate-600'
+                                : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                            }`}
+                          >
+                            {evt.category || 'user'}
+                          </span>
+
                           {/* Severity badge */}
                           <span
                             className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase ${
@@ -2807,7 +2926,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div className="text-right shrink-0 text-[10px] text-gray-400">
                           <div>{dateStr}</div>
                           <div className="text-gray-500 font-mono">
-                            {evt.user} {evt.ip ? `(${evt.ip})` : ''}
+                            {evt.user} {evt.source ? `[${evt.source}]` : ''} {evt.ip ? `(${evt.ip})` : ''}
                           </div>
                         </div>
                       </div>

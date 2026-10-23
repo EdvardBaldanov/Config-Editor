@@ -118,8 +118,31 @@ func (s *Server) handleInspectPluginURL(w http.ResponseWriter, r *http.Request) 
 
 	pending, err := s.plugins.InspectURL(req.URL)
 	if err != nil {
+		if s.audit != nil {
+			_ = s.audit.Log(audit.Event{
+				User:     s.getAuditUser(r),
+				IP:       r.RemoteAddr,
+				Category: audit.CategoryNetwork,
+				Action:   audit.ActionNetError,
+				Severity: audit.SeverityError,
+				Target:   req.URL,
+				Details:  map[string]any{"error": err.Error(), "operation": "inspect_url"},
+			})
+		}
 		jsonError(w, http.StatusBadRequest, "failed to inspect plugin from URL: "+err.Error())
 		return
+	}
+
+	if s.audit != nil && pending != nil {
+		_ = s.audit.Log(audit.Event{
+			User:     s.getAuditUser(r),
+			IP:       r.RemoteAddr,
+			Category: audit.CategoryNetwork,
+			Action:   audit.ActionNetDownload,
+			Severity: audit.SeverityInfo,
+			Target:   req.URL,
+			Details:  map[string]any{"operation": "inspect_url", "pluginId": pending.Manifest.ID, "version": pending.Manifest.Version},
+		})
 	}
 
 	jsonResponse(w, http.StatusOK, map[string]any{
@@ -242,6 +265,17 @@ func (s *Server) handleInstallPluginURL(w http.ResponseWriter, r *http.Request) 
 
 	installed, err := s.plugins.InstallFromURL(req.URL)
 	if err != nil {
+		if s.audit != nil {
+			_ = s.audit.Log(audit.Event{
+				User:     s.getAuditUser(r),
+				IP:       r.RemoteAddr,
+				Category: audit.CategoryNetwork,
+				Action:   audit.ActionNetError,
+				Severity: audit.SeverityError,
+				Target:   req.URL,
+				Details:  map[string]any{"error": err.Error(), "operation": "install_url"},
+			})
+		}
 		jsonError(w, http.StatusBadRequest, "failed to install plugin from URL: "+err.Error())
 		return
 	}

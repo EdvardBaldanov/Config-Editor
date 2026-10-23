@@ -1,4 +1,4 @@
-﻿import { Language } from './utils/i18n';
+import { Language } from './utils/i18n';
 
 export interface Settings {
   appTitle: string;
@@ -173,13 +173,17 @@ export interface OpenFile {
   revisions: FileRevision[];
 }
 
-export type AuditSeverity = 'info' | 'warn' | 'critical';
+export type AuditSeverity = 'info' | 'warn' | 'critical' | 'error';
+export type AuditCategory = 'user' | 'system' | 'error' | 'plugin' | 'network';
 
 export interface AuditEvent {
   id: string;
   timestamp: string;
   user: string;
   ip: string;
+  category?: AuditCategory;
+  source?: 'user' | 'backend' | 'frontend' | 'plugin';
+  sourceId?: string;
   action: string;
   severity: AuditSeverity;
   target: string;

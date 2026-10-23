@@ -1,4 +1,4 @@
-﻿import {
+import {
   Settings,
   FileItem,
   FileInfo,
@@ -18,6 +18,7 @@
   SecretItem,
   SecretsStatus,
 } from '../types';
+import { telemetry } from './telemetry';
 
 export class PreSaveGuardError extends Error {
   guard: GuardIssue;
@@ -60,10 +61,25 @@ async function webFetch(url: string, options: RequestInit = {}): Promise<Respons
   }
   const baseUrl = remoteEndpoint ? remoteEndpoint.replace(/\/$/, '') : '';
   const finalUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
-  return fetch(finalUrl, {
-    ...options,
-    headers,
-  });
+  try {
+    const res = await fetch(finalUrl, {
+      ...options,
+      headers,
+    });
+    if (!res.ok && !url.includes('/api/audit/ingest')) {
+      telemetry.captureNetworkError(url, res.status, res.statusText, {
+        method: options.method || 'GET',
+      });
+    }
+    return res;
+  } catch (err: any) {
+    if (!url.includes('/api/audit/ingest')) {
+      telemetry.captureNetworkError(url, 0, err?.message || 'Network request failed', {
+        method: options.method || 'GET',
+      });
+    }
+    throw err;
+  }
 }
 
 export const api = {
@@ -425,6 +441,8 @@ export const api = {
     limit?: number;
     offset?: number;
     action?: string;
+    category?: string;
+    source?: string;
     severity?: string;
     search?: string;
   } = {}): Promise<AuditQueryResponse> {
@@ -432,12 +450,27 @@ export const api = {
     if (params.limit) query.set('limit', String(params.limit));
     if (params.offset) query.set('offset', String(params.offset));
     if (params.action) query.set('action', params.action);
+    if (params.category) query.set('category', params.category);
+    if (params.source) query.set('source', params.source);
     if (params.severity) query.set('severity', params.severity);
     if (params.search) query.set('search', params.search);
 
     const res = await webFetch(`/api/audit/logs?${query.toString()}`);
     if (!res.ok) return { events: [], total: 0 };
     return res.json();
+  },
+
+  async ingestAuditEvents(events: Partial<AuditEvent>[]): Promise<void> {
+    if (!events || events.length === 0) return;
+    try {
+      await webFetch('/api/audit/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ events }),
+      });
+    } catch {
+      // Best-effort ingestion, must not break caller
+    }
   },
 
   async exportAuditLogs(): Promise<Blob> {

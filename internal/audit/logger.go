@@ -75,6 +75,30 @@ func (l *Logger) loadRecentFromDisk() {
 	}
 }
 
+func inferCategory(action, severity string) string {
+	act := strings.ToLower(action)
+	sev := strings.ToLower(severity)
+	if sev == SeverityCritical || sev == SeverityError || strings.HasPrefix(act, "ui.") || strings.HasSuffix(act, ".error") {
+		return CategoryError
+	}
+	if strings.HasPrefix(act, "net.") {
+		return CategoryNetwork
+	}
+	if strings.HasPrefix(act, "system.") {
+		return CategorySystem
+	}
+	if strings.HasPrefix(act, "plugin.") {
+		if act == ActionPluginInstall || act == ActionPluginToggle || act == ActionPluginDelete {
+			return CategoryUser
+		}
+		return CategoryPlugin
+	}
+	if strings.HasPrefix(act, "file.") || strings.HasPrefix(act, "shell.") || strings.HasPrefix(act, "server.") {
+		return CategoryUser
+	}
+	return CategorySystem
+}
+
 // Log records a new audit event to disk and in-memory buffer.
 func (l *Logger) Log(evt Event) error {
 	l.mu.Lock()
@@ -88,6 +112,15 @@ func (l *Logger) Log(evt Event) error {
 	}
 	if evt.Severity == "" {
 		evt.Severity = SeverityInfo
+	}
+	if evt.Category == "" {
+		evt.Category = inferCategory(evt.Action, evt.Severity)
+	}
+	if evt.Source == "" {
+		evt.Source = "backend"
+	}
+	if evt.SourceID == "" {
+		evt.SourceID = "core"
 	}
 
 	data, err := json.Marshal(evt)
@@ -126,6 +159,12 @@ func (l *Logger) Query(filter QueryFilter) QueryResult {
 		evt := l.ring[i]
 
 		if severityFilter != "" && strings.ToLower(evt.Severity) != severityFilter {
+			continue
+		}
+		if filter.Category != "" && strings.ToLower(evt.Category) != strings.ToLower(filter.Category) {
+			continue
+		}
+		if filter.Source != "" && strings.ToLower(evt.Source) != strings.ToLower(filter.Source) {
 			continue
 		}
 		if actionFilter != "" && !strings.Contains(strings.ToLower(evt.Action), actionFilter) {
@@ -187,6 +226,21 @@ func (l *Logger) Export(w io.Writer) error {
 
 	_, err = io.Copy(w, f)
 	return err
+}
+
+// LogSystem is a convenience method for backend internal telemetry logging.
+func (l *Logger) LogSystem(category, action, severity, target string, details map[string]any) error {
+	return l.Log(Event{
+		Source:   "backend",
+		SourceID: "core",
+		Category: category,
+		User:     "system",
+		IP:       "127.0.0.1",
+		Action:   action,
+		Severity: severity,
+		Target:   target,
+		Details:  details,
+	})
 }
 
 // Close closes the underlying audit file.
