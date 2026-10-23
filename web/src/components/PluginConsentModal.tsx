@@ -32,23 +32,35 @@ interface PermMeta {
   risk: 'safe' | 'low' | 'medium' | 'critical';
   riskLabel: string;
   icon: React.ReactNode;
+  isUnknown?: boolean;
 }
 
 function getPermissionMeta(perm: string, lang: string = 'ru'): PermMeta {
   const isEn = lang === 'en';
   if (!perm || typeof perm !== 'string') {
     return {
-      label: 'Unknown',
-      desc: isEn ? 'Unknown permission' : 'Неизвестное разрешение',
-      risk: 'low',
-      riskLabel: isEn ? 'Low risk' : 'Низкий риск',
-      icon: <HelpCircle size={16} className="text-gray-400" />,
+      label: 'Invalid Permission',
+      desc: isEn ? 'Malformed or empty permission declaration' : 'Некорректное или пустое объявление разрешения',
+      risk: 'critical',
+      riskLabel: isEn ? 'Invalid / Critical' : 'Ошибка / Критический риск',
+      icon: <ShieldAlert size={16} className="text-rose-400" />,
+      isUnknown: true,
     };
   }
 
   const normalized = perm.trim().toLowerCase();
 
   switch (normalized) {
+    case '*':
+      return {
+        label: isEn ? 'Full Unrestricted Access (*)' : 'Полный неограниченный доступ (*)',
+        desc: isEn
+          ? 'Grants unlimited access to all system, terminal, secrets, and files'
+          : 'Предоставляет неограниченный доступ ко всей системе, терминалу, секретам и файлам',
+        risk: 'critical',
+        riskLabel: isEn ? 'Critical (Full Access)' : 'Критический (Полный доступ)',
+        icon: <ShieldAlert size={16} className="text-rose-500" />,
+      };
     case 'fs.read':
       return {
         label: isEn ? 'Read project files' : 'Чтение файлов проекта',
@@ -157,11 +169,14 @@ function getPermissionMeta(perm: string, lang: string = 'ru'): PermMeta {
         };
       }
       return {
-        label: perm,
-        desc: isEn ? 'Additional editor functionality' : 'Дополнительное расширение возможностей редактора',
-        risk: 'low',
-        riskLabel: isEn ? 'Low risk' : 'Низкий риск',
-        icon: <HelpCircle size={16} className="text-gray-400" />,
+        label: isEn ? `Unknown Permission: ${perm}` : `Неизвестное разрешение: ${perm}`,
+        desc: isEn
+          ? 'Unrecognized capability not defined in Config Studio specification. Exercise extreme caution!'
+          : 'Нераспознанное ядром разрешение вне официальной спецификации Config Studio. Требуется предельное внимание!',
+        risk: 'critical',
+        riskLabel: isEn ? 'Unknown / High Risk' : 'Неизвестно / Высокий риск',
+        icon: <ShieldAlert size={16} className="text-rose-400" />,
+        isUnknown: true,
       };
   }
 }
@@ -178,10 +193,9 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
 
   const isEn = language === 'en';
   const permissions = pending.manifest.permissions || [];
-  const hasCritical = permissions.some((p) => {
-    const meta = getPermissionMeta(p, language);
-    return meta?.risk === 'critical';
-  });
+  const metas = permissions.map((p) => getPermissionMeta(p, language));
+  const hasCritical = metas.some((m) => m?.risk === 'critical');
+  const hasUnknown = metas.some((m) => m?.isUnknown);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150">
@@ -404,8 +418,25 @@ export const PluginConsentModal: React.FC<PluginConsentModalProps> = ({
             )}
           </div>
 
+          {/* Security notice for unknown / unrecognized permissions */}
+          {hasUnknown && (
+            <div className="p-3.5 bg-rose-500/15 border border-rose-500/40 rounded-lg flex items-start gap-2.5">
+              <ShieldAlert size={16} className="text-rose-400 shrink-0 mt-0.5" />
+              <div className="text-xs text-rose-200 leading-relaxed">
+                <span className="font-semibold text-rose-300">
+                  {isEn ? 'Security Warning: Unknown Capabilities Requested' : 'Предупреждение безопасности: Неизвестные разрешения'}
+                </span>
+                <p className="mt-0.5 text-rose-300/90">
+                  {isEn
+                    ? 'This plugin requests permissions outside the Config Studio specification. In accordance with Fail-Secure / Zero Trust principles, unrecognized permissions are treated as Critical Risk.'
+                    : 'Плагин запрашивает привилегии, отсутствующие в спецификации Config Studio. В соответствии с принципом Fail-Secure / Zero Trust любые неизвестные разрешения классифицируются как Критический риск.'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Warning notice if high-risk permissions */}
-          {hasCritical && (
+          {hasCritical && !hasUnknown && (
             <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-lg flex items-start gap-2.5">
               <AlertTriangle size={16} className="text-rose-400 shrink-0 mt-0.5" />
               <div className="text-xs text-rose-300 leading-relaxed">

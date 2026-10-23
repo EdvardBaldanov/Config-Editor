@@ -1953,20 +1953,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           )}
                           {p.permissions && p.permissions.length > 0 && (
                             <div className="flex flex-wrap items-center gap-1">
-                              {p.permissions.map((perm) => (
-                                <span
-                                  key={perm}
-                                  className={`text-[9px] px-1.5 py-0.2 rounded font-mono ${
-                                    perm.includes('exec') || perm.includes('secrets')
-                                      ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20'
-                                      : perm.startsWith('service')
-                                      ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
-                                      : 'bg-teal-500/10 text-teal-300 border border-teal-500/20'
-                                  }`}
-                                >
-                                  {perm}
-                                </span>
-                              ))}
+                              {p.permissions.map((perm) => {
+                                const isCritical = perm.includes('exec') || perm.includes('secrets') || perm === '*';
+                                const isService = perm.startsWith('service:') || perm.startsWith('service.');
+                                const isKnown =
+                                  isCritical ||
+                                  isService ||
+                                  ['fs.read', 'fs.write', 'network', 'network.bind', 'contextmenu', 'toolbar'].includes(perm.toLowerCase()) ||
+                                  perm.toLowerCase().startsWith('ui.') ||
+                                  perm.toLowerCase().startsWith('ui:');
+                                const isUnknown = !isKnown;
+
+                                return (
+                                  <span
+                                    key={perm}
+                                    className={`text-[9px] px-1.5 py-0.2 rounded font-mono ${
+                                      isCritical || isUnknown
+                                        ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20'
+                                        : isService
+                                        ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
+                                        : 'bg-teal-500/10 text-teal-300 border border-teal-500/20'
+                                    }`}
+                                    title={isUnknown ? 'Неизвестное разрешение вне спецификации' : undefined}
+                                  >
+                                    {isUnknown ? `⚠️ ${perm}` : perm}
+                                  </span>
+                                );
+                              })}
                             </div>
                           )}
 
