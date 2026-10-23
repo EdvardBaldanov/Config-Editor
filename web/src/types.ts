@@ -1,4 +1,4 @@
-import { Language } from './utils/i18n';
+﻿import { Language } from './utils/i18n';
 
 export interface Settings {
   appTitle: string;
@@ -234,6 +234,7 @@ export interface CatalogItem {
   enabled: boolean;
   icon?: string;
   tags?: string[];
+  locales?: Record<string, { name?: string; description?: string }>;
 }
 
 export interface StudioProfile {

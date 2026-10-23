@@ -46,6 +46,7 @@ import {
   AuditEvent,
   PendingInstall,
   PluginSource,
+  CatalogItem,
   ProfilePreview,
   SecretMeta,
   SecretItem,
@@ -327,6 +328,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [sources, setSources] = useState<PluginSource[]>([]);
   const [isLoadingSources, setIsLoadingSources] = useState(false);
   const [isSyncingSources, setIsSyncingSources] = useState(false);
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
   const [showAddSourceForm, setShowAddSourceForm] = useState(false);
   const [newSourceName, setNewSourceName] = useState('');
   const [newSourceUrl, setNewSourceUrl] = useState('');
@@ -549,9 +552,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (isOpen) {
       loadPlugins();
       loadSources();
+      loadCatalog();
       loadSecrets();
     }
   }, [isOpen]);
+
+  const loadCatalog = async () => {
+    setIsLoadingCatalog(true);
+    try {
+      const items = await api.getCatalog();
+      if (items && items.length > 0) {
+        setCatalogItems(items);
+      } else {
+        setCatalogItems(
+          OFFICIAL_CATALOG.map((c) => ({
+            id: c.id,
+            name: c.name,
+            version: c.version,
+            description: c.description,
+            author: 'Config Studio Team',
+            downloadUrl: c.repoUrl + '/archive/refs/heads/main.zip',
+            homepage: c.repoUrl,
+            sourceId: 'official',
+            official: true,
+            installed: pluginsList.some((p) => p.id === c.id),
+            enabled: false,
+            icon: c.icon,
+            tags: c.tags,
+            locales: c.locales,
+          }))
+        );
+      }
+    } catch (e) {
+      console.warn('Failed to load remote catalog, using offline fallback:', e);
+      setCatalogItems(
+        OFFICIAL_CATALOG.map((c) => ({
+          id: c.id,
+          name: c.name,
+          version: c.version,
+          description: c.description,
+          author: 'Config Studio Team',
+          downloadUrl: c.repoUrl + '/archive/refs/heads/main.zip',
+          homepage: c.repoUrl,
+          sourceId: 'official',
+          official: true,
+          installed: pluginsList.some((p) => p.id === c.id),
+          enabled: false,
+          icon: c.icon,
+          tags: c.tags,
+          locales: c.locales,
+        }))
+      );
+    } finally {
+      setIsLoadingCatalog(false);
+    }
+  };
 
   const loadSources = async () => {
     setIsLoadingSources(true);
@@ -570,6 +625,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const res = await api.syncSources();
       setSources(res.sources);
+      if (res.items && res.items.length > 0) {
+        setCatalogItems(res.items);
+      } else {
+        await loadCatalog();
+      }
       await loadPlugins();
       alert(language === 'en' ? 'Plugin sources synced successfully!' : 'Синхронизация каталогов успешно завершена!');
     } catch (e: any) {
@@ -756,11 +816,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const handleInstallCatalogPlugin = async (p: CatalogPlugin) => {
+  const handleInstallCatalogPlugin = async (p: CatalogItem | CatalogPlugin) => {
     setIsInstalling(true);
     setInstallMsg(null);
     try {
-      const pending = await api.inspectPluginUrl(p.repoUrl);
+      const url =
+        (p as CatalogItem).downloadUrl ||
+        (p as CatalogPlugin).repoUrl ||
+        (p as CatalogItem).homepage;
+      const pending = await api.inspectPluginUrl(url);
       setPendingInstall(pending);
     } catch (err: any) {
       setInstallMsg({ text: err.message || `Ошибка проверки ${p.name}`, isError: true });
@@ -800,6 +864,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       // 2. 1-Click install missing dependencies from catalog
       if (missing.length > 0) {
         const canInstallFromCatalog = missing.filter((m) =>
+          catalogItems.some((c) => c.id === m.pluginId) ||
           OFFICIAL_CATALOG.some((c) => c.id === m.pluginId)
         );
         if (canInstallFromCatalog.length > 0) {
@@ -811,10 +876,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           );
           if (ok) {
             for (const m of canInstallFromCatalog) {
-              const catPlugin = OFFICIAL_CATALOG.find((c) => c.id === m.pluginId);
-              if (catPlugin) {
+              const catItem = catalogItems.find((c) => c.id === m.pluginId);
+              const targetUrl =
+                catItem?.downloadUrl ||
+                catItem?.homepage ||
+                OFFICIAL_CATALOG.find((c) => c.id === m.pluginId)?.repoUrl;
+              if (targetUrl) {
                 try {
-                  const depPending = await api.inspectPluginUrl(catPlugin.repoUrl);
+                  const depPending = await api.inspectPluginUrl(targetUrl);
                   await api.confirmPluginInstall(depPending.tempKey);
                 } catch (e) {
                   console.error('Failed to auto-install dependency:', e);
@@ -2114,79 +2183,127 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
             </div>
 
-            {/* Official Plugins Catalog */}
+            {/* Official & Remote Plugins Catalog */}
             <div className="p-4 rounded-2xl bg-gray-100/60 dark:bg-black/20 border border-base-border space-y-3">
-              <div>
-                <div className="flex items-center space-x-1.5 mb-1">
-                  <Sparkles size={14} className="text-accent" />
-                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    {t.catalogTitle}
-                  </label>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center space-x-1.5 mb-1">
+                    <Sparkles size={14} className="text-accent" />
+                    <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      {t.catalogTitle}
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                    {t.catalogDesc}
+                  </p>
                 </div>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                  {t.catalogDesc}
-                </p>
+                <button
+                  type="button"
+                  onClick={handleSyncSources}
+                  disabled={isSyncingSources}
+                  title={t.syncSources}
+                  className="px-2.5 py-1 rounded-xl text-xs font-medium border border-base-border bg-base-surface hover:border-gray-500/40 text-gray-300 flex items-center space-x-1.5 transition cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  <RefreshCw size={12} className={isSyncingSources ? 'animate-spin text-accent' : ''} />
+                  <span>{isSyncingSources ? t.syncingSources : t.syncSources}</span>
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 gap-2.5">
-                {OFFICIAL_CATALOG.map((item) => {
-                  const isInstalled = pluginsList.some((p) => p.id === item.id);
-                  const catalogName = item.locales?.[language]?.name || item.locales?.en?.name || item.name;
-                  const catalogDesc = item.locales?.[language]?.description || item.locales?.en?.description || item.description;
-                  return (
-                    <div
-                      key={item.id}
-                      className="p-3.5 rounded-2xl border border-base-border bg-white dark:bg-white/5 flex items-start justify-between gap-3 hover:border-gray-500/30 transition shadow-2xs"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-base">{item.icon}</span>
-                          <span className="font-semibold text-xs text-gray-900 dark:text-white">
-                            {catalogName}
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-base-border text-gray-400 font-mono">
-                            v{item.version}
-                          </span>
-                        </div>
-
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                          {catalogDesc}
-                        </p>
-
-                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                          {item.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-[10px] px-1.5 py-0.5 rounded bg-black/20 dark:bg-black/40 text-gray-600 dark:text-gray-400 font-mono"
-                            >
-                              {tag}
+              {isLoadingCatalog && catalogItems.length === 0 ? (
+                <div className="py-8 text-center text-xs text-gray-500 flex items-center justify-center space-x-2">
+                  <RefreshCw size={14} className="animate-spin text-accent" />
+                  <span>{t.syncingSources}</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2.5">
+                  {(catalogItems.length > 0
+                    ? catalogItems
+                    : OFFICIAL_CATALOG.map((c) => ({
+                        id: c.id,
+                        name: c.name,
+                        version: c.version,
+                        description: c.description,
+                        author: 'Config Studio Team',
+                        downloadUrl: c.repoUrl + '/archive/refs/heads/main.zip',
+                        homepage: c.repoUrl,
+                        sourceId: 'official',
+                        official: true,
+                        installed: pluginsList.some((p) => p.id === c.id),
+                        enabled: false,
+                        icon: c.icon,
+                        tags: c.tags,
+                        locales: c.locales,
+                      }))
+                  ).map((item) => {
+                    const isInstalled = pluginsList.some((p) => p.id === item.id) || item.installed;
+                    const catalogName =
+                      item.locales?.[language]?.name || item.locales?.en?.name || item.name;
+                    const catalogDesc =
+                      item.locales?.[language]?.description ||
+                      item.locales?.en?.description ||
+                      item.description;
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-3.5 rounded-2xl border border-base-border bg-white dark:bg-white/5 flex items-start justify-between gap-3 hover:border-gray-500/30 transition shadow-2xs"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-base">{item.icon || '🧩'}</span>
+                            <span className="font-semibold text-xs text-gray-900 dark:text-white">
+                              {catalogName}
                             </span>
-                          ))}
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-base-border text-gray-400 font-mono">
+                              v{item.version}
+                            </span>
+                            {item.official && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-accent/15 text-accent font-medium border border-accent/30">
+                                official
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                            {catalogDesc}
+                          </p>
+
+                          {item.tags && item.tags.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                              {item.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-black/20 dark:bg-black/40 text-gray-600 dark:text-gray-400 font-mono"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="shrink-0 pt-0.5">
+                          {isInstalled ? (
+                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              <Check size={12} />
+                              <span>{t.installedBadge}</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleInstallCatalogPlugin(item)}
+                              disabled={isInstalling}
+                              className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-accent hover:opacity-90 text-gray-900 transition disabled:opacity-50 cursor-pointer shadow-xs active:scale-95"
+                            >
+                              <Download size={13} />
+                              <span>{isInstalling ? t.installing : t.installCatalogBtn}</span>
+                            </button>
+                          )}
                         </div>
                       </div>
-
-                      <div className="shrink-0 pt-0.5">
-                        {isInstalled ? (
-                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                            <Check size={12} />
-                            <span>{t.installedBadge}</span>
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleInstallCatalogPlugin(item)}
-                            disabled={isInstalling}
-                            className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-accent hover:opacity-90 text-gray-900 transition disabled:opacity-50 cursor-pointer shadow-xs active:scale-95"
-                          >
-                            <Download size={13} />
-                            <span>{isInstalling ? t.installing : t.installCatalogBtn}</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Install New Plugin Section (3 methods) */}

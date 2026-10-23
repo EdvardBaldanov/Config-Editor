@@ -14,7 +14,7 @@ import { api, PreSaveGuardError } from './services/api';
 import { pluginManager, PluginSystemState } from './services/pluginLoader';
 import { Settings, FileItem, OpenFile, FileRevision, GuardIssue, GuardValidationResult } from './types';
 import { parseContentToOutline } from './utils/astParser';
-import { translations, Language } from './utils/i18n';
+import { translations, Language, DEFAULT_LANGUAGE } from './utils/i18n';
 import { adjustBrightness, getLuminance } from './utils/color';
 
 export const App: React.FC = () => {
@@ -23,7 +23,7 @@ export const App: React.FC = () => {
     baseColor: '#161b22',
     accentColor: '#00d2b4',
     themeMode: 'dark',
-    language: 'ru',
+    language: DEFAULT_LANGUAGE,
     hasCustomIcon: false,
     authEnabled: false,
     authUser: 'admin',

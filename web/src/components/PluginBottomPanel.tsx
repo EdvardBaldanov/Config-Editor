@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { X, ChevronUp, ChevronDown, Terminal } from 'lucide-react';
 import { BottomPanelDef } from '../services/pluginLoader';
 

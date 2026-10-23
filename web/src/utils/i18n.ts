@@ -588,6 +588,7 @@ const customLanguagePacks: Map<string, LanguagePack> = new Map();
 const registryChangeListeners: Set<() => void> = new Set();
 
 export const BUILD_LOCALE = ((import.meta as any).env?.VITE_APP_LOCALE as string) || 'all';
+export const DEFAULT_LANGUAGE: Language = BUILD_LOCALE === 'en' ? 'en' : 'ru';
 
 /**
  * Returns all available languages (built-ins + dynamically registered language packs).
@@ -674,8 +675,8 @@ export function subscribeLanguages(listener: () => void): () => void {
  * Retrieves the translation dictionary for a given language,
  * falling back gracefully to English for any missing keys.
  */
-export function getTranslations(lang: string = 'ru'): Record<string, string> {
-  const normalized = (lang || 'ru').toLowerCase();
+export function getTranslations(lang: string = DEFAULT_LANGUAGE): Record<string, string> {
+  const normalized = (lang || DEFAULT_LANGUAGE).toLowerCase();
 
   if (normalized === 'ru') {
     const custom = customLanguagePacks.get('ru');
@@ -696,7 +697,7 @@ export function getTranslations(lang: string = 'ru'): Record<string, string> {
     };
   }
 
-  return builtInTranslations.ru;
+  return BUILD_LOCALE === 'en' ? builtInTranslations.en : builtInTranslations.ru;
 }
 
 /**
@@ -705,7 +706,7 @@ export function getTranslations(lang: string = 'ru'): Record<string, string> {
  */
 export const translations: Record<string, any> = new Proxy(builtInTranslations as any, {
   get(target, prop: string) {
-    if (typeof prop !== 'string') return target.ru;
+    if (typeof prop !== 'string') return target[DEFAULT_LANGUAGE] || target.ru;
     return getTranslations(prop);
   },
 });

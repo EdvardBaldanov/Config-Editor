@@ -1,4 +1,4 @@
-import { parseDocument, isMap, isSeq, isPair, isScalar, LineCounter } from 'yaml';
+﻿import { parseDocument, isMap, isSeq, isPair, isScalar, LineCounter } from 'yaml';
 import { OutlineNode, OutlineNodeType } from '../types';
 import { pluginManager } from '../services/pluginLoader';
 

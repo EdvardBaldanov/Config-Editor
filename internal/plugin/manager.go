@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"config-studio/internal/cspkg"
 )
 
 type Manager struct {
@@ -373,17 +375,12 @@ func (m *Manager) getPluginLocked(id string) (*Plugin, error) {
 	return nil, fmt.Errorf("plugin %s not found", id)
 }
 
-// InspectZip extracts a zip archive to a temporary staging folder,
+// InspectZip extracts a zip or .cspkg archive to a temporary staging folder,
 // parses and validates plugin.json, and returns PendingInstall metadata.
 func (m *Manager) InspectZip(r io.Reader, size int64, sourceURL string) (*PendingInstall, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
-	}
-
-	zipReader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return nil, fmt.Errorf("invalid zip archive: %w", err)
 	}
 
 	// Create a temporary extraction directory
@@ -392,44 +389,58 @@ func (m *Manager) InspectZip(r io.Reader, size int64, sourceURL string) (*Pendin
 		return nil, err
 	}
 
-	// Extract files with zip-slip safety check
-	for _, f := range zipReader.File {
-		cleanPath := filepath.Clean(f.Name)
-		if strings.HasPrefix(cleanPath, "..") || strings.Contains(cleanPath, ":") {
+	// Check if this is a .cspkg binary package format
+	if len(data) >= 4 && data[0] == 'C' && data[1] == 'S' && data[2] == 'P' && data[3] == 'K' {
+		if _, err := cspkg.UnpackBytes(data, tmpDir); err != nil {
 			_ = os.RemoveAll(tmpDir)
-			return nil, fmt.Errorf("insecure path in zip archive: %s", f.Name)
+			return nil, fmt.Errorf("invalid cspkg package: %w", err)
 		}
-
-		targetPath := filepath.Join(tmpDir, cleanPath)
-		if f.FileInfo().IsDir() {
-			_ = os.MkdirAll(targetPath, 0755)
-			continue
-		}
-
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-			_ = os.RemoveAll(tmpDir)
-			return nil, err
-		}
-
-		outFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+	} else {
+		zipReader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 		if err != nil {
 			_ = os.RemoveAll(tmpDir)
-			return nil, err
+			return nil, fmt.Errorf("invalid archive: %w", err)
 		}
 
-		rc, err := f.Open()
-		if err != nil {
+		// Extract files with zip-slip safety check
+		for _, f := range zipReader.File {
+			cleanPath := filepath.Clean(f.Name)
+			if strings.HasPrefix(cleanPath, "..") || strings.Contains(cleanPath, ":") {
+				_ = os.RemoveAll(tmpDir)
+				return nil, fmt.Errorf("insecure path in archive: %s", f.Name)
+			}
+
+			targetPath := filepath.Join(tmpDir, cleanPath)
+			if f.FileInfo().IsDir() {
+				_ = os.MkdirAll(targetPath, 0755)
+				continue
+			}
+
+			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+				_ = os.RemoveAll(tmpDir)
+				return nil, err
+			}
+
+			outFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+			if err != nil {
+				_ = os.RemoveAll(tmpDir)
+				return nil, err
+			}
+
+			rc, err := f.Open()
+			if err != nil {
+				outFile.Close()
+				_ = os.RemoveAll(tmpDir)
+				return nil, err
+			}
+
+			_, err = io.Copy(outFile, rc)
+			rc.Close()
 			outFile.Close()
-			_ = os.RemoveAll(tmpDir)
-			return nil, err
-		}
-
-		_, err = io.Copy(outFile, rc)
-		rc.Close()
-		outFile.Close()
-		if err != nil {
-			_ = os.RemoveAll(tmpDir)
-			return nil, err
+			if err != nil {
+				_ = os.RemoveAll(tmpDir)
+				return nil, err
+			}
 		}
 	}
 

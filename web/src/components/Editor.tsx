@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo } from 'react';
+﻿import React, { useRef, useEffect, useMemo } from 'react';
 import MonacoEditor, { OnMount } from '@monaco-editor/react';
 import { OpenFile, Settings, OutlineNode, ToolbarButtonDef, GuardValidationResult } from '../types';
 import { X, FileCode, Hash, ShieldAlert, ShieldCheck } from 'lucide-react';

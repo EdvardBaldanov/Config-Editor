@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { AlertTriangle, Terminal, Check, X, ShieldAlert } from 'lucide-react';
 
 interface CommandConfirmModalProps {

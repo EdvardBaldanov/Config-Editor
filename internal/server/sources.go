@@ -105,5 +105,10 @@ func (s *Server) handleSyncSources(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	installed, _ := s.plugins.ListPlugins()
 	items := s.plugins.Sources().GetCatalog(installed)
+	if len(items) == 0 {
+		if synced, err := s.plugins.Sources().SyncSources(installed); err == nil && len(synced) > 0 {
+			items = synced
+		}
+	}
 	jsonResponse(w, http.StatusOK, map[string]any{"catalog": items})
 }

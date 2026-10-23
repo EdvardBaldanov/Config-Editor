@@ -1,4 +1,4 @@
-import {
+﻿import {
   Settings,
   FileItem,
   FileInfo,

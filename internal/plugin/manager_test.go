@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"config-studio/internal/cspkg"
 )
 
 func createTestPluginZip(t *testing.T, id, name, author string, permissions []string) []byte {
@@ -384,4 +386,68 @@ func errorsAs(err error, target any) bool {
 		}
 	}
 	return false
+}
+
+func TestInspectAndInstallCSPKG(t *testing.T) {
+	tempDir := t.TempDir()
+	srcDir := filepath.Join(tempDir, "sample-pkg-src")
+	_ = os.MkdirAll(srcDir, 0755)
+
+	manifestJSON := `{
+		"id": "binary-pkg-test",
+		"name": "Binary Package Test",
+		"version": "1.0.0",
+		"author": "Config Studio Team",
+		"entry": "main.js"
+	}`
+	_ = os.WriteFile(filepath.Join(srcDir, "plugin.json"), []byte(manifestJSON), 0644)
+	_ = os.WriteFile(filepath.Join(srcDir, "main.js"), []byte("console.log('binary package');"), 0644)
+
+	cspkgPath := filepath.Join(tempDir, "test.cspkg")
+	_, err := cspkg.Pack(srcDir, cspkgPath)
+	if err != nil {
+		t.Fatalf("failed to pack cspkg: %v", err)
+	}
+
+	mgr, err := NewManager(tempDir, nil)
+	if err != nil {
+		t.Fatalf("failed to create manager: %v", err)
+	}
+
+	cspkgFile, err := os.Open(cspkgPath)
+	if err != nil {
+		t.Fatalf("failed to open cspkg: %v", err)
+	}
+	defer cspkgFile.Close()
+
+	stat, _ := cspkgFile.Stat()
+
+	// Inspect CSPKG
+	pending, err := mgr.InspectZip(cspkgFile, stat.Size(), "https://example.com/test.cspkg")
+	if err != nil {
+		t.Fatalf("failed to inspect cspkg via manager: %v", err)
+	}
+
+	if pending.Manifest.ID != "binary-pkg-test" {
+		t.Errorf("expected ID 'binary-pkg-test', got %s", pending.Manifest.ID)
+	}
+
+	// Confirm install
+	installed, err := mgr.ConfirmInstall(pending.TempKey)
+	if err != nil {
+		t.Fatalf("failed to confirm install cspkg: %v", err)
+	}
+
+	if installed.ID != "binary-pkg-test" || !installed.Enabled {
+		t.Errorf("installed plugin state mismatch: %+v", installed)
+	}
+
+	// Verify plugin exists on disk
+	p, err := mgr.GetPlugin("binary-pkg-test")
+	if err != nil {
+		t.Fatalf("GetPlugin failed: %v", err)
+	}
+	if p.Manifest.Name != "Binary Package Test" {
+		t.Errorf("Manifest name mismatch: %s", p.Manifest.Name)
+	}
 }

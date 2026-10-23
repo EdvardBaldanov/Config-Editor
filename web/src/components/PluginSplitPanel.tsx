@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+﻿import React, { useEffect, useRef } from 'react';
 import { X, ExternalLink, Maximize2, Minimize2 } from 'lucide-react';
 import { SplitPanelDef } from '../types';
 

@@ -1,4 +1,4 @@
-import { api, setRemoteEndpoint } from './api';
+﻿import { api, setRemoteEndpoint } from './api';
 import {
   PluginItem,
   OpenFile,

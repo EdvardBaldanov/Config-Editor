@@ -24,21 +24,27 @@ type Source struct {
 	PluginsCount int        `json:"pluginsCount"`
 }
 
+type CatalogLocale struct {
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
 type CatalogItem struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Version     string   `json:"version"`
-	Description string   `json:"description"`
-	Author      string   `json:"author"`
-	License     string   `json:"license,omitempty"`
-	Homepage    string   `json:"homepage,omitempty"`
-	DownloadURL string   `json:"downloadUrl"`
-	SourceID    string   `json:"sourceId"`
-	Official    bool     `json:"official"`
-	Installed   bool     `json:"installed"`
-	Enabled     bool     `json:"enabled"`
-	Icon        string   `json:"icon,omitempty"`
-	Tags        []string `json:"tags,omitempty"`
+	ID          string                   `json:"id"`
+	Name        string                   `json:"name"`
+	Version     string                   `json:"version"`
+	Description string                   `json:"description"`
+	Author      string                   `json:"author"`
+	License     string                   `json:"license,omitempty"`
+	Homepage    string                   `json:"homepage,omitempty"`
+	DownloadURL string                   `json:"downloadUrl"`
+	SourceID    string                   `json:"sourceId"`
+	Official    bool                     `json:"official"`
+	Installed   bool                     `json:"installed"`
+	Enabled     bool                     `json:"enabled"`
+	Icon        string                   `json:"icon,omitempty"`
+	Tags        []string                 `json:"tags,omitempty"`
+	Locales     map[string]CatalogLocale `json:"locales,omitempty"`
 }
 
 type SourcesManager struct {

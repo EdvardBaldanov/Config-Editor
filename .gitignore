@@ -1,4 +1,4 @@
-# Binaries and build outputs
+﻿# Binaries and build outputs
 bin/
 *.exe
 *.dll
@@ -22,5 +22,3 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
-*.bat
-start.bat
